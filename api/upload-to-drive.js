@@ -59,4 +59,76 @@ export default async function handler(req, res) {
     }
 
     tempFilePath = uploadedFile.filepath;
-    const originalFilename = uploadedFile.originalFilename?.replace(/
+    const originalFilename = uploadedFile.originalFilename?.replace(/[^a-zA-Z0-9._-]/g, '_') || 'uploaded_document';
+
+    const fileMetadata = {
+      name: originalFilename,
+      mimeType: uploadedFile.mimetype || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    };
+
+    const media = {
+      mimeType: fileMetadata.mimeType,
+      body: fs.createReadStream(tempFilePath),
+    };
+
+    const driveResponse = await drive.files.create({
+      resource: fileMetadata,
+      media,
+      fields: 'id, name',
+    });
+
+    const uploadedOriginalFileId = driveResponse.data.id;
+
+    const copiedFileResource = {
+      name: `${driveResponse.data.name}_GoogleDoc`,
+      mimeType: 'application/vnd.google-apps.document',
+    };
+
+    const docConversionResponse = await drive.files.copy({
+      fileId: uploadedOriginalFileId,
+      resource: copiedFileResource,
+      fields: 'id, webViewLink',
+    });
+
+    const googleDocId = docConversionResponse.data.id;
+
+    await drive.permissions.create({
+      fileId: googleDocId,
+      resource: {
+        role: process.env.GOOGLE_DOC_PERMISSION_ROLE || 'writer',
+        type: process.env.GOOGLE_DOC_PERMISSION_TYPE || 'anyone',
+      },
+    });
+
+    const editableDocUrl = `https://docs.google.com/document/d/${googleDocId}/edit?usp=sharing&rm=minimal`;
+
+    if (process.env.DELETE_ORIGINAL_UPLOAD_FROM_DRIVE === 'true') {
+      try {
+        await drive.files.delete({ fileId: uploadedOriginalFileId });
+      } catch (err) {
+        console.error('Delete failed:', err);
+      }
+    }
+
+    res.status(200).json({
+      docUrl: editableDocUrl,
+      fileId: googleDocId,
+      webViewLink: docConversionResponse.data.webViewLink,
+    });
+
+  } catch (err) {
+    console.error('Upload failed:', err);
+    res.status(500).json({
+      error: `上傳失敗：${err.message}`,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    });
+  } finally {
+    if (tempFilePath) {
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch (err) {
+        console.error('Temp file delete failed:', err);
+      }
+    }
+  }
+}
