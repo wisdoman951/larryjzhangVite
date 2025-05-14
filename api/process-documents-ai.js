@@ -1,13 +1,11 @@
 // api/process-documents-ai.js
-const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
-const { S3 } = require('@aws-sdk/client-s3'); // 假設你也會用到 S3 下載
-const { Document } = require('langchain/document');
-const { RecursiveCharacterTextSplitter } = require('langchain/text_splitter');
-const { MemoryVectorStore } = require('langchain/vectorstores/memory');
-const { OpenAIEmbeddings } = require('@langchain/openai'); // 注意：套件名稱可能是 @langchain/openai
-const { ConversationalRetrievalQAChain } = require('langchain/chains');
-// const express = require('express'); // 不再需要 Express Router
-// const router = express.Router();    // 不再需要 Express Router
+import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'; 
+import { Document } from 'langchain/document'; 
+import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'; 
+import { MemoryVectorStore } from 'langchain/vectorstores/memory'; 
+import { OpenAIEmbeddings } from '@langchain/openai';
+import { ConversationalRetrievalQAChain } from 'langchain/chains'; 
 
 const awsConfig = {
   region: process.env.AWS_REGION || 'ap-northeast-1', // 提供預設值或確保環境變數已設定

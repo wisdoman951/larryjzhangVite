@@ -1,7 +1,7 @@
 // api/upload-helper-file.js
-const formidable = require('formidable');
-const fs = require('fs');
-const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3"); // AWS SDK v3
+import formidable from 'formidable'; // 或者 import { IncomingForm } from 'formidable';
+import { readFileSync, unlinkSync } from 'fs'; // 只導入用到的函數
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"; // AWS SDK v3 的 ESM 導入
 
 // S3 Client Configuration
 // Credentials and region should ideally be set via environment variables.

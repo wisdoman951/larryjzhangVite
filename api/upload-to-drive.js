@@ -1,7 +1,7 @@
 // api/upload-to-drive.js
-const { google } = require('googleapis');
-const formidable = require('formidable');
-const fs = require('fs');
+import { google } from 'googleapis';
+import { IncomingForm } from 'formidable'; // 為了匹配 new IncomingForm() 的使用方式
+import { createReadStream, unlinkSync } from 'fs'; // 只導入用到的函數
 
 module.exports = async (req, res) => {
   // CORS Headers - Restrict origin in production
