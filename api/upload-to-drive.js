@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import formidable from 'formidable';
+import { IncomingForm } from 'formidable';
 import fs from 'fs';
 
 export default async function handler(req, res) {
@@ -36,11 +36,11 @@ export default async function handler(req, res) {
 
   const drive = google.drive({ version: 'v3', auth });
 
-  const form = new formidable.IncomingForm({
-    uploadDir: '/tmp',
-    keepExtensions: true,
-    multiples: false,
-  });
+	const form = new IncomingForm({
+	  uploadDir: '/tmp',
+	  keepExtensions: true,
+	  multiples: false,
+	});
 
   let tempFilePath;
 
