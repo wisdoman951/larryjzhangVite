@@ -36,11 +36,11 @@ export default async function handler(req, res) {
       });
     });
 
-    const uploadedFile = files.file;
+	const uploadedFile = Array.isArray(files.file) ? files.file[0] : files.file;
     if (!uploadedFile || !uploadedFile.filepath) {
-      console.error('Formidable files object:', files);
-      return res.status(400).json({ error: 'No file uploaded or path missing.' });
-    }
+	  console.error('Missing uploaded file or filepath:', uploadedFile);
+	  return res.status(400).json({ error: 'No file uploaded' });
+	}
     tempFilePath = uploadedFile.filepath;
 
     const fileContent = fs.readFileSync(tempFilePath);

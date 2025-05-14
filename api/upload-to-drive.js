@@ -59,11 +59,11 @@ export default async function handler(req, res) {
       });
     });
 	console.log('Uploaded files:', files);
-    const uploadedFile = files.file;
+	const uploadedFile = Array.isArray(files.file) ? files.file[0] : files.file;
     if (!uploadedFile || !uploadedFile.filepath) {
-      console.error('Missing uploaded file');
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
+	  console.error('Missing uploaded file or filepath:', uploadedFile);
+	  return res.status(400).json({ error: 'No file uploaded' });
+	}
 
     tempFilePath = uploadedFile.filepath;
     const originalFilename = uploadedFile.originalFilename?.replace(/[^a-zA-Z0-9._-]/g, '_') || 'uploaded_document';
