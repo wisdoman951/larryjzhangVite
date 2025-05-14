@@ -2,6 +2,13 @@ import { google } from 'googleapis';
 import { IncomingForm } from 'formidable';
 import fs from 'fs';
 
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 export default async function handler(req, res) {
   const allowedOrigin = process.env.FRONTEND_URL || '*';
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
