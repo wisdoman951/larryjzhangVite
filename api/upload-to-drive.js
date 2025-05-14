@@ -58,7 +58,7 @@ export default async function handler(req, res) {
         resolve({ fields, files });
       });
     });
-
+	console.log('Uploaded files:', files);
     const uploadedFile = files.file;
     if (!uploadedFile || !uploadedFile.filepath) {
       console.error('Missing uploaded file');
