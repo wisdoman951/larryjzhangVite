@@ -1,0 +1,17 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 您之前為 text-shadow 定義的 @layer utilities */
+@layer utilities {
+  .text-shadow-sm { text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+  .text-shadow-md { text-shadow: 0 2px 4px rgba(0,0,0,0.35); }
+  .text-shadow-lg { text-shadow: 0 4px 6px rgba(0,0,0,0.35); }
+}
+
+/* 可以加入一些全域的 body 樣式，例如預設文字顏色，以確保在深色背景上的可讀性 */
+body {
+  @apply bg-slate-900 text-gray-100; /* 範例：預設深色背景和淺色文字 */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
