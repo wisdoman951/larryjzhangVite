@@ -422,16 +422,3 @@ const NessusAIPage = () => {
   );
 };
 export default NessusAIPage;
-```
-**對 `NessusAIPage.jsx` 的重要修改與說明：**
-* **API 端點 `GET_PROCESSED_REPORT_DOWNLOAD_URL_API`**: **請務必將佔位符 `https://YOUR_API_GATEWAY_ID.execute-api.YOUR_REGION.amazonaws.com/prod/get-download-url` 替換為您為 `get_processed_report_url_lambda` 設定的真實 API Gateway 端點。**
-* **檔案上傳邏輯 (`handleUploadAndProcess`, `uploadSingleFileToS3`)**:
-    * 現在會逐個為選中的檔案請求預簽名 URL 並上傳。
-    * 增加了對單一 ZIP 檔案或多個 CSV 檔案的處理邏輯。
-    * `filesUploadedToS3Info` 狀態會儲存成功上傳的檔案資訊 (S3 Key, Bucket, 原始檔名)。
-* **輪詢邏輯 (`startPollingForReport`)**:
-    * 現在會向 `GET_PROCESSED_REPORT_DOWNLOAD_URL_API` 發送請求，並在查詢參數中帶上 `s3Prefix`。這個 `s3Prefix` 是基於原始上傳檔案的名稱和固定的 `processed_reports/Nessus_Report_` 前綴來構造的，以便 `get_processed_report_url_lambda` 可以找到對應的最新已處理報告。
-    * 成功獲取下載 URL 後，會更新相關狀態以啟用下載和聊天功能。
-* **狀態管理**: 增加了更多狀態來追蹤上傳進度、S3 上傳完成情況、報告處理狀態等，以提供更清晰的 UI 反饋。
-* **錯誤處理與日誌**: 增加了更多的錯誤處理和 console log。
-* **UI/UX**: 調整了上傳提示，明確說明可以上傳多個 CSV 或單一 ZIP。處理中和錯誤訊息更
