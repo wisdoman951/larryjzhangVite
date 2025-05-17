@@ -5,6 +5,8 @@ import MainLayout from './components/MainLayout.jsx'; // 注意副檔名 .jsx
 import Dashboard from './components/Dashboard.jsx';
 import ReportPage from './components/ReportPage.jsx';
 import CompliancePage from './components/CompliancePage.jsx'; // 假設您已創建
+import NessusAIPage from './components/NessusAIPage'; // 引入新頁面
+
 
 function App() {
   return (
@@ -14,6 +16,7 @@ function App() {
           <Route exact path="/" component={Dashboard} />
           <Route path="/report" component={ReportPage} />
           <Route path="/compliance" component={CompliancePage} />
+		  <Route path="/nessus-ai" component={NessusAIPage} />
         </Switch>
       </MainLayout>
     </BrowserRouter>
