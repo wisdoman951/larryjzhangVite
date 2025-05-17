@@ -25,7 +25,8 @@
     "google-auth-library": "^9.11.0",
     "googleapis": "^105.0.0",
 	"@aws-sdk/client-s3": "^3.0.0",
-    "http-server": "^14.1.1"
+    "http-server": "^14.1.1",
+	"lucide-react": "^0.292.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
