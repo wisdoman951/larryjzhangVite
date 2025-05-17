@@ -65,65 +65,35 @@ const NessusAIPage = () => {
     if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
   };
 
-	const handleFileChange = (event) => {
-		// 在處理新選擇前，先重置與上傳/報告相關的狀態
-		resetStateBeforeNewUpload(); 
-		handleFiles(event.target.files ? Array.from(event.target.files) : []);
-		// 清空 file input 的值，這樣使用者可以再次選擇同一個檔案 (如果他們取消後又想選)
-		if (fileInputRef.current) {
-			fileInputRef.current.value = ""; 
-		}
-	};
-	const resetStateBeforeNewUpload = () => {
-		setSelectedFiles([]);
-		setUploadError('');
-		setUploadProgress(0);
-		setCurrentJobId(null);
-		setReportReady(false);
-		setReportDownloadUrl('');
-		setReportS3KeyForChat('');
-		setReportS3BucketForChat('');
-		setReportFileNameForDisplay('');
-		setIsProcessingReport(false);
-		setProcessingStatusMessage('');
-		setFilesUploadedCount(0);
-		// 清空聊天訊息或保留初始訊息
-		setChatMessages([{ id: Date.now(), text: '您好！請上傳一個包含 Nessus CSV 報告的 ZIP 壓縮檔。', sender: 'system' }]);
-		if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-	};
-	
-	const handleFiles = (incomingFiles) => {
-    // resetStateBeforeNewUpload(); // 在選擇或拖曳新檔案時先重置一部分狀態
-    setUploadError(''); // 清除之前的錯誤訊息
-    setSelectedFiles([]); // 清空之前的選擇
-
-    if (!incomingFiles || incomingFiles.length === 0) {
-        // logger.info("No files selected or dropped.");
-        return;
+  const handleFileChange = (event) => {
+    // resetStateBeforeNewUpload(); // 不在這裡重置，避免選了檔案又取消時狀態被清空
+    const files = Array.from(event.target.files);
+    if (files.length > 1 && files.some(f => f.name.toLowerCase().endsWith('.zip'))) {
+        setUploadError('如果您上傳 ZIP 檔案，請只選擇一個 ZIP 檔案。'); setSelectedFiles([]); return;
     }
-
-    if (incomingFiles.length > 1) {
-        setUploadError('請一次只上傳一個 ZIP 檔案。');
-        return;
+    const validFiles = files.filter(f => f.name.toLowerCase().endsWith('.csv') || f.name.toLowerCase().endsWith('.zip'));
+    if (validFiles.length !== files.length && files.length > 0) { // 只有在選了檔案但部分無效時才提示
+        setUploadError('部分檔案類型不支援。僅支援 CSV 或 ZIP。有效的檔案已保留。');
+    } else {
+        setUploadError('');
     }
+    setSelectedFiles(validFiles);
+  };
 
-    const file = incomingFiles[0];
-    if (!file.name.toLowerCase().endsWith('.zip')) {
-        setUploadError(`檔案格式錯誤：${file.name} 不是一個 ZIP 檔案。請上傳 .zip 格式的檔案。`);
-        return;
+  const handleDrop = (event) => {
+    event.preventDefault(); setIsDragging(false); // resetStateBeforeNewUpload(); // 同上
+    const files = Array.from(event.dataTransfer.files);
+    if (files.length > 1 && files.some(f => f.name.toLowerCase().endsWith('.zip'))) {
+        setUploadError('如果您上傳 ZIP 檔案，請只選擇一個 ZIP 檔案。'); setSelectedFiles([]); return;
     }
-
-    // 如果所有檢查都通過
-    setSelectedFiles([file]);
-    setUploadError(''); // 清除錯誤訊息
-};
-	const handleDrop = (event) => {
-		event.preventDefault();
-		setIsDragging(false);
-		// 在處理新拖曳前，先重置與上傳/報告相關的狀態
-		resetStateBeforeNewUpload();
-		handleFiles(event.dataTransfer.files ? Array.from(event.dataTransfer.files) : []);
-	};
+    const validFiles = files.filter(f => f.name.toLowerCase().endsWith('.csv') || f.name.toLowerCase().endsWith('.zip'));
+    if (validFiles.length !== files.length && files.length > 0) {
+        setUploadError('部分檔案類型不支援。僅支援 CSV 或 ZIP。有效的檔案已保留。');
+    } else {
+        setUploadError('');
+    }
+    setSelectedFiles(validFiles);
+  };
 
   const uploadSingleFileToS3 = async (file, jobIdToUse) => { // jobIdToUse 由外部傳入
     try {
@@ -159,58 +129,55 @@ const NessusAIPage = () => {
     }
   };
 
-const handleUploadAndProcess = async () => {
-    if (!selectedFiles || selectedFiles.length === 0 || !selectedFiles[0]) {
-        setUploadError('請先選擇一個 ZIP 檔案。');
-        return;
-    }
-    const fileToUpload = selectedFiles[0];
-    if (!fileToUpload.name.toLowerCase().endsWith('.zip')) {
-         setUploadError('檔案格式錯誤，請確保上傳的是 .zip 檔案。');
-         return;
-    }
-
-    // 重置與上一個任務相關的狀態，但保留已選檔案
-    // (將 resetStateBeforeNewUpload 的部分邏輯移到這裡，或創建一個更細緻的重置函數)
-    setUploadError(''); setUploadProgress(0); setCurrentJobId(null);
-    setReportReady(false); setReportDownloadUrl(''); setReportS3KeyForChat('');
-    setReportS3BucketForChat(''); setReportFileNameForDisplay('');
-    setIsProcessingReport(false); setProcessingStatusMessage('');
-    setFilesUploadedCount(0);
-    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-    setChatMessages([{id: Date.now(), text: '準備開始新任務...', sender: 'system'}]);
-
+  const handleUploadAndProcess = async () => {
+    if (!selectedFiles.length) { setUploadError('請選擇檔案。'); return; }
+    
+    // 在開始實際操作前重置狀態
+    resetStateBeforeNewUpload(); 
+    // 重新設定 selectedFiles，因為 resetStateBeforeNewUpload 會清空它，但我們需要用它來上傳
+    // 這一行其實不需要，因為 selectedFiles 狀態在 resetStateBeforeNewUpload 之後，但在這裡之前，
+    // 應該是從 file input 的 onChange 或 onDrop 事件中重新設定的。
+    // 但為了確保，如果 resetStateBeforeNewUpload 被意外調用，這裡可以重新從某個地方獲取
+    // setSelectedFiles(fileInputRef.current.files ? Array.from(fileInputRef.current.files) : []); // 這行可能不必要
 
     const newJobId = uuidv4();
-    setCurrentJobId(newJobId);
-    logger.info(`新任務開始，Job ID: ${newJobId}，準備上傳檔案: ${fileToUpload.name}`);
+    setCurrentJobId(newJobId); // 設定當前任務 ID
+    logger.info(`新任務開始，Job ID: ${newJobId}`);
 
-    setIsUploading(true);
-    // ... 後續的 S3 上傳和輪詢邏輯與 <immersive id="nessus_ai_page_react_v4_dynamodb_final" ...> 中的類似
-    // 但現在我們知道 selectedFiles[0] 就是那個唯一的 ZIP 檔案
-    setProcessingStatusMessage(`🚀 準備上傳檔案: ${fileToUpload.name}...`);
-    setChatMessages(prev => [...prev.filter(m => m.sender === 'system'), {id: Date.now(), text: `🚀 任務 ${newJobId} 開始，準備上傳檔案: ${fileToUpload.name}...`, sender: 'system'}]);
+    setIsUploading(true); // 用於表示正在進行 Presigned URL 獲取和 S3 PUT
+    setProcessingStatusMessage('🚀 準備上傳檔案...');
+    setChatMessages(prev => [...prev.filter(m => m.sender === 'system'), {id: Date.now(), text: `🚀 任務 ${newJobId} 開始，準備上傳檔案...`, sender: 'system'}]);
+    setUploadProgress(0);
+    setFilesUploadedCount(0);
 
-    const result = await uploadSingleFileToS3(fileToUpload, newJobId);
+    const totalFilesToUpload = selectedFiles.length;
+    let successfulUploadsInfo = [];
 
-    if (!result.success) {
-        setIsUploading(false);
-        setUploadError(prev => `${prev}檔案 ${result.originalFileName} 上傳失敗: ${result.error}. `);
-        setChatMessages(prevMsgs => [...prevMsgs, {id: Date.now(), text: `❌ 檔案 ${result.originalFileName} 上傳失敗。任務 ${newJobId} 中止。`, sender: 'system-error'}]);
-        setCurrentJobId(null);
-        return; 
+    for (let i = 0; i < totalFilesToUpload; i++) {
+        const file = selectedFiles[i];
+        setProcessingStatusMessage(`正在上傳檔案 ${i+1}/${totalFilesToUpload}: ${file.name}...`);
+        const result = await uploadSingleFileToS3(file, newJobId); // 傳遞相同的 newJobId
+        
+        if (!result.success) {
+            setIsUploading(false); // 上傳階段失敗
+            setUploadError(prev => `${prev}檔案 ${result.originalFileName} 上傳失敗: ${result.error}. `);
+            setChatMessages(prevMsgs => [...prevMsgs, {id: Date.now()+i, text: `❌ 檔案 ${result.originalFileName} 上傳失敗。任務 ${newJobId} 中止。`, sender: 'system-error'}]);
+            setCurrentJobId(null); // 任務失敗，清除 jobId
+            return; 
+        }
+        successfulUploadsInfo.push(result);
+        setFilesUploadedCount(prev => prev + 1);
+        setUploadProgress( Math.round(((i + 1) / totalFilesToUpload) * 100) );
     }
-
-    setFilesUploadedCount(1); // 因為只上傳一個 ZIP
-    setUploadProgress(100);   // ZIP 上傳完成進度就是 100%
-
-    setIsUploading(false); 
-    setIsProcessingReport(true); 
-    setProcessingStatusMessage('✅ ZIP 檔案已上傳到 S3。後端正在處理報告，請稍候...');
-    setChatMessages(prev => [...prev, {id: Date.now()+1, text: `✅ ZIP 檔案上傳成功！任務 ${newJobId} 的報告正在後端生成中... (這可能需要幾分鐘)`, sender: 'system'}]);
-
-    startPollingForReport(newJobId);
-};
+    
+    // 所有檔案都已上傳到 S3
+    setIsUploading(false); // S3 上傳階段完成
+    setIsProcessingReport(true); // 標記後端 Lambda 報告處理開始
+    setProcessingStatusMessage('✅ 檔案已全部上傳到 S3。後端正在處理報告，請稍候...');
+    setChatMessages(prev => [...prev, {id: Date.now()+1, text: `✅ 所有檔案上傳成功！任務 ${newJobId} 的報告正在後端生成中... (這可能需要幾分鐘)`, sender: 'system'}]);
+    
+    startPollingForReport(newJobId); // 使用 jobId 開始輪詢
+  };
   
   const startPollingForReport = (jobIdToPoll) => {
     if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
@@ -331,14 +298,14 @@ const handleUploadAndProcess = async () => {
               className={`border-2 border-dashed ${isDragging ? 'border-purple-500 bg-purple-900/30' : 'border-gray-600 hover:border-purple-400'} p-6 sm:p-8 rounded-lg text-center cursor-pointer transition-all duration-300 ease-in-out`}
               onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} onClick={triggerFileInput}
             >
-			<input 
-			  type="file" 
-			  ref={fileInputRef} 
-			  onChange={handleFileChange} 
-			  className="hidden" 
-			  accept=".zip,application/zip,application/x-zip-compressed" // 明確指定 .zip
-			  // multiple={false} // 如果只允許單一 ZIP，則移除 multiple 或設為 false
-			/>              
+		<input 
+		  type="file" 
+		  ref={fileInputRef} 
+		  onChange={handleFileChange} 
+		  className="hidden" 
+		  accept=".zip,application/zip,application/x-zip-compressed" // 明確指定 .zip
+		  // multiple={false} // 如果只允許單一 ZIP，則移除 multiple 或設為 false
+		/>              
 				<UploadCloud className={`w-12 h-12 mx-auto mb-3 ${isDragging ? 'text-purple-400' : 'text-gray-500'}`} />
               {selectedFiles.length === 0 && ( <p className="text-gray-400 text-sm sm:text-base">拖曳 Nessus CSV (可多個) 或單一 ZIP 至此，或 <span className="text-purple-400 font-semibold">點擊選擇</span>。</p> )}
               {selectedFiles.length > 0 && (
