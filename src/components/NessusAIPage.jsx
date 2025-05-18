@@ -9,14 +9,14 @@ const CHECK_REPORT_STATUS_API = 'https://gdc4pbpk35.execute-api.ap-northeast-1.a
 
 const NessusAIPage = () => {
   const [selectedFiles, setSelectedFiles] = useState([]);
-  const [currentJobId, setCurrentJobId] = useState(null); // 當前正在處理或關注的 Job ID
+  const [currentJobId, setCurrentJobId] = useState(null); 
 
-  const [isUploading, setIsUploading] = useState(false); // 標記 Presigned URL 獲取和 S3 PUT 過程
+  const [isUploading, setIsUploading] = useState(false); 
   const [uploadError, setUploadError] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [filesUploadedCount, setFilesUploadedCount] = useState(0);
 
-  const [isProcessingReport, setIsProcessingReport] = useState(false); // 標記後端 Lambda 是否正在處理報告 (輪詢時)
+  const [isProcessingReport, setIsProcessingReport] = useState(false); 
   const [processingStatusMessage, setProcessingStatusMessage] = useState('');
   
   const [reportReady, setReportReady] = useState(false);
@@ -33,7 +33,7 @@ const NessusAIPage = () => {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
   const chatContainerRef = useRef(null);
-  const pollingIntervalRef = useRef(null); // 只用來存儲 interval ID
+  const pollingIntervalRef = useRef(null); 
 
   const logger = {
     info: (message, ...args) => console.log(`[INFO] ${new Date().toISOString()}: ${message}`, ...args),
@@ -43,7 +43,7 @@ const NessusAIPage = () => {
 
   useEffect(() => {
     setChatMessages([{ id: Date.now(), text: '您好！請上傳一個包含 Nessus CSV 報告的 ZIP 壓縮檔。', sender: 'system' }]);
-    return () => { // 組件卸載時清除輪詢
+    return () => { 
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
@@ -55,24 +55,31 @@ const NessusAIPage = () => {
     if (chatContainerRef.current) chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight; 
   }, [chatMessages]);
 
-  const triggerFileInput = () => fileInputRef.current.click();
+  const triggerFileInput = () => {
+    // 只有在沒有活動任務時才允許觸發檔案選擇
+    if (currentJobId || isUploading || isProcessingReport) {
+        logger.warn("triggerFileInput: 操作被忽略，目前有任務正在進行中。");
+        setUploadError("目前有任務正在處理中，請等待完成或點擊「處理新報告」。");
+        return;
+    }
+    fileInputRef.current.click();
+  };
   const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
 
-  // 重置所有與任務相關的狀態，用於開始一個全新的上傳流程或用戶取消/完成後
-  const resetTaskStates = (initiatingNewJob = false) => {
-    if (pollingIntervalRef.current) { // 無論如何，先停止任何正在運行的輪詢
+  const resetTaskStates = (initiatingNewJob = false, fromNewFileSelection = false) => {
+    if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
+      logger.info("resetTaskStates: 已清除輪詢 interval。");
     }
     
     setUploadError(''); 
     setUploadProgress(0); 
     setFilesUploadedCount(0);
     
-    // 只有在明確開始一個全新任務時才重置 currentJobId
-    // 或者當任務完成/失敗/超時後，用戶點擊“處理新報告”按鈕時
     if (initiatingNewJob) {
+        logger.info(`resetTaskStates: 正在為新任務重置 currentJobId (之前是: ${currentJobId})。`);
         setCurrentJobId(null); 
     }
     
@@ -81,20 +88,23 @@ const NessusAIPage = () => {
     setReportS3KeyForChat('');
     setReportS3BucketForChat(''); 
     setReportFileNameForDisplay('');
-    setIsProcessingReport(false); 
-    setProcessingStatusMessage('');
-
-    // 根據情況決定是否重置聊天訊息
-    if (initiatingNewJob) {
-        setChatMessages([{ id: Date.now(), text: '請上傳一個新的 ZIP 壓縮檔。', sender: 'system' }]);
+    // isProcessingReport 和 processingStatusMessage 應該由 handleUploadAndProcess 控制
+    // 但如果是由「處理新報告」按鈕觸發，則應重置
+    if (initiatingNewJob) { // 只有在明確開始新任務或點擊重置按鈕時才重置這些
+        setIsProcessingReport(false); 
+        setProcessingStatusMessage('');
+        if (fromNewFileSelection) { // 如果是來自檔案選擇，聊天訊息可以更通用
+             setChatMessages([{ id: Date.now(), text: '請選擇一個 ZIP 檔案以上傳。', sender: 'system' }]);
+        } else {
+             setChatMessages([{ id: Date.now(), text: '請上傳一個新的 ZIP 壓縮檔。', sender: 'system' }]);
+        }
     }
   };
 
   const handleFilesValidation = (incomingFiles) => {
-    // 當用戶選擇或拖曳新檔案時，我們認為這是一個新任務的開始意圖
-    // 因此，重置與上一個任務相關的狀態，並清除已選檔案列表等待新的有效選擇
-    resetTaskStates(true); // initiatingNewJob = true
-    setSelectedFiles([]); 
+    // 這個函數現在只負責驗證和設定 selectedFiles，不直接調用 resetTaskStates
+    setSelectedFiles([]); // 先清空
+    setUploadError('');   // 清除舊錯誤
 
     if (!incomingFiles || incomingFiles.length === 0) return true;
 
@@ -112,17 +122,32 @@ const NessusAIPage = () => {
   };
 
   const handleFileChange = (event) => {
+    // 如果當前有任務正在上傳或處理，則不允許更改選擇，避免狀態混亂
+    if (isUploading || isProcessingReport) {
+        logger.warn("handleFileChange: 操作被忽略，目前有任務正在上傳或處理中。");
+        setUploadError("目前有任務正在處理中，請先等待其完成。");
+        if (fileInputRef.current) fileInputRef.current.value = ""; // 仍然清空，避免瀏覽器記住選擇
+        return;
+    }
+    // 選擇新檔案代表開始一個新任務的意圖
+    resetTaskStates(true, true); // initiatingNewJob = true, fromNewFileSelection = true
     handleFilesValidation(event.target.files ? Array.from(event.target.files) : []);
     if (fileInputRef.current) fileInputRef.current.value = ""; 
   };
 
   const handleDrop = (event) => {
     event.preventDefault(); setIsDragging(false); 
+    if (isUploading || isProcessingReport) {
+        logger.warn("handleDrop: 操作被忽略，目前有任務正在上傳或處理中。");
+        setUploadError("目前有任務正在處理中，請先等待其完成。");
+        return;
+    }
+    resetTaskStates(true, true); // initiatingNewJob = true, fromNewFileSelection = true
     handleFilesValidation(event.dataTransfer.files ? Array.from(event.dataTransfer.files) : []);
   };
 
   const uploadSingleFileToS3 = async (file, jobIdToUse) => {
-    // ... (此函數與  中的版本相同，已包含 x-amz-meta-* headers)
+    // ... (此函數與之前版本相同) ...
     try {
       logger.info(`請求預簽名 URL，jobId: ${jobIdToUse}, fileName: ${file.name}`);
       const presignedUrlResponse = await fetch(GENERATE_PRESIGNED_URL_API, {
@@ -169,14 +194,14 @@ const NessusAIPage = () => {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
+      logger.info("handleUploadAndProcess: 已清除舊的輪詢 interval。");
     }
 
     // 2. 為新任務生成 ID
     const newJobId = uuidv4();
     
     // 3. 設定與新任務相關的初始狀態
-    //    將 setCurrentJobId 移到所有其他相關狀態設定之後，或作為它們的一部分
-    //    或者，更好的方式是，確保 startPollingForReport 捕獲 newJobId，而不是依賴於異步的 currentJobId state
+    //    確保在 setCurrentJobId 之前設定好其他初始狀態
     setUploadError(''); 
     setUploadProgress(0);
     setFilesUploadedCount(0);
@@ -185,24 +210,25 @@ const NessusAIPage = () => {
     setReportS3KeyForChat('');
     setReportS3BucketForChat(''); 
     setReportFileNameForDisplay('');
-    setIsProcessingReport(true); // 新任務開始，設定為處理中
+    setIsProcessingReport(true); 
     setProcessingStatusMessage('🚀 準備上傳檔案...');
+    // 更新聊天訊息，只保留初始系統訊息（如果有的話）並添加新任務開始訊息
     setChatMessages(prev => prev.filter(m => m.sender === 'system' && m.text.startsWith('您好！')).concat({id: Date.now(), text: `🚀 任務 ${newJobId} 開始，準備上傳檔案...`, sender: 'system'}));
     
-    // **在所有其他狀態更新之後設定 currentJobId，並確保它是此函數作用域內最新的**
+    // 4. **在所有其他相關狀態更新之後，並且在異步操作 (如 S3 上傳) 之前，設定 currentJobId**
     setCurrentJobId(newJobId); 
-    logger.info(`新任務開始，Job ID (已設定 state): ${newJobId}`);
+    logger.info(`新任務開始，Job ID (已設定 React state): ${newJobId}`);
     
-    setIsUploading(true); // 表示正在獲取 Presigned URL 和上傳 S3
+    setIsUploading(true); 
     
-    const result = await uploadSingleFileToS3(fileToUpload, newJobId); // 傳遞 newJobId
+    const result = await uploadSingleFileToS3(fileToUpload, newJobId); 
     
     if (!result.success) {
         setIsUploading(false);
-        setIsProcessingReport(false); // 上傳失敗，也應停止處理狀態
+        setIsProcessingReport(false); 
         setUploadError(prev => `${prev}檔案 ${result.originalFileName} 上傳失敗: ${result.error}. `);
         setChatMessages(prevMsgs => [...prevMsgs, {id: Date.now(), text: `❌ 檔案 ${result.originalFileName} 上傳失敗。任務 ${newJobId} 中止。`, sender: 'system-error'}]);
-        setCurrentJobId(null); // 任務失敗，清除 jobId
+        setCurrentJobId(null); // 任務失敗，清除 jobId，允許用戶重新開始
         return; 
     }
     
@@ -210,30 +236,31 @@ const NessusAIPage = () => {
     setUploadProgress(100);   
     
     setIsUploading(false); 
-    // isProcessingReport 保持 true
     setProcessingStatusMessage('✅ ZIP 檔案已上傳到 S3。後端正在處理報告，請稍候...');
     setChatMessages(prev => [...prev, {id: Date.now()+1, text: `✅ ZIP 檔案上傳成功！任務 ${newJobId} 的報告正在後端生成中...`, sender: 'system'}]);
     
-    startPollingForReport(newJobId, newJobId); // 傳遞 newJobId 作為 pollForThisJobId
+    // 將 newJobId (當前任務的 ID) 傳遞給 startPollingForReport 作為其「活躍會話 ID」
+    startPollingForReport(newJobId, newJobId); 
   };
   
-  // 修改 startPollingForReport 函數，使其依賴傳入的 jobIdToPoll，而不是 React state 的 currentJobId 來決定是否處理 COMPLETED
-  const startPollingForReport = (jobIdToPoll, activeJobIdForThisSession) => {
-    // activeJobIdForThisSession 是 handleUploadAndProcess 啟動時的 currentJobId (即 newJobId)
-    if (pollingIntervalRef.current) {
+  const startPollingForReport = (jobIdToPoll, activeJobIdForThisInterval) => {
+    // activeJobIdForThisInterval 是此輪詢實例被啟動時的 jobId
+    if (pollingIntervalRef.current) { // 清除任何可能存在的舊 interval
       clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
     }
     let attempts = 0;
     const maxAttempts = 36; 
     const pollIntervalMs = 10000;
-    logger.info(`輪詢啟動: 針對 jobId=${jobIdToPoll}, 當前活躍任務ID=${activeJobIdForThisSession}, API=${CHECK_REPORT_STATUS_API}`);
+    logger.info(`輪詢啟動: 針對 jobId=${jobIdToPoll}, 此輪詢的活躍ID=${activeJobIdForThisInterval}, API=${CHECK_REPORT_STATUS_API}`);
     
     pollingIntervalRef.current = setInterval(async () => {
       attempts++;
       
-      // 檢查全局的 currentJobId 是否已經改變，如果改變了，表示用戶開始了新任務，此輪詢應停止
-      if (currentJobId !== activeJobIdForThisSession) {
-          logger.warn(`全局 currentJobId (${currentJobId}) 與此輪詢會話的 activeJobId (${activeJobIdForThisSession}) 不符，停止對 jobId ${jobIdToPoll} 的輪詢。`);
+      // **關鍵檢查點1：如果 React state 中的 currentJobId 已經不是啟動此輪詢時的 activeJobIdForThisInterval，
+      // 表示用戶已經開始了一個全新的任務 (例如，重新選擇了檔案並點擊了上傳)，則此舊輪詢應停止。**
+      if (currentJobId !== activeJobIdForThisInterval) {
+          logger.warn(`全局 currentJobId (${currentJobId}) 與此輪詢實例的 activeJobId (${activeJobIdForThisInterval}) 不符，停止對 jobId ${jobIdToPoll} 的輪詢。`);
           clearInterval(pollingIntervalRef.current);
           return;
       }
@@ -241,7 +268,7 @@ const NessusAIPage = () => {
       if (attempts > maxAttempts) { 
         logger.warn(`輪詢 jobId ${jobIdToPoll} 已達到最大嘗試次數 ${maxAttempts}。`);
         clearInterval(pollingIntervalRef.current); 
-        if (isProcessingReport) { // 只有當 UI 仍在處理中時才更新為超時
+        if (isProcessingReport) { 
             setIsProcessingReport(false);
             setProcessingStatusMessage(`報告處理超時 (任務 ${jobIdToPoll})。`);
             setChatMessages(prev => [...prev, {id: Date.now(), text: `⚠️ 任務 ${jobIdToPoll} 報告處理超時。`, sender: 'system-error'}]);
@@ -257,9 +284,9 @@ const NessusAIPage = () => {
         const reportStatusResponse = await fetch(apiUrl);
         const data = await reportStatusResponse.json();
 
-        // 如果全局 currentJobId 在 fetch 期間改變了，也停止 (雙重保險)
-        if (currentJobId !== activeJobIdForThisSession) {
-            logger.warn(`在 fetch 回應後，全局 currentJobId (${currentJobId}) 與 activeJobId (${activeJobIdForThisSession}) 不符，停止對 jobId ${jobIdToPoll} 的輪詢。`);
+        // **關鍵檢查點2：在處理回應之前，再次檢查 currentJobId**
+        if (currentJobId !== activeJobIdForThisInterval) {
+            logger.warn(`在 fetch 回應後，全局 currentJobId (${currentJobId}) 與 activeJobId (${activeJobIdForThisInterval}) 不符，停止對 jobId ${jobIdToPoll} 的輪詢。`);
             clearInterval(pollingIntervalRef.current);
             return;
         }
@@ -273,12 +300,11 @@ const NessusAIPage = () => {
           logger.info(`輪詢成功 (為 jobId ${jobIdToPoll})，報告已完成!`, data);
           clearInterval(pollingIntervalRef.current); 
 
-          // 更新 UI 狀態
           setReportDownloadUrl(data.downloadUrl);
           setReportFileNameForDisplay(data.fileName);
           setReportS3KeyForChat(data.s3Key); 
           setReportS3BucketForChat(data.s3Bucket);
-          setCurrentJobId(jobIdToPoll); // 確保 currentJobId 是這個已完成的 job
+          // setCurrentJobId(jobIdToPoll); // currentJobId 應該已經是 jobIdToPoll (即 activeJobIdForThisInterval)
           setIsProcessingReport(false); 
           setReportReady(true);       
           setProcessingStatusMessage(`🎉 報告 "${data.fileName}" (任務 ${jobIdToPoll}) 已成功產生！`);
@@ -286,17 +312,15 @@ const NessusAIPage = () => {
           return; 
         }
         
-        // 其他狀態處理 (PROCESSING, FAILED, 404等)
         if (data.status === 'PROCESSING' || data.status === 'UPLOADING' || reportStatusResponse.status === 202) {
             logger.info(`輪詢嘗試 ${attempts}: 報告仍在處理中 (JobId: ${jobIdToPoll}, API狀態: ${data.status || 'N/A'})`);
-            // UI 上的 processingStatusMessage 會由 setProcessingStatusMessage 在 interval 開始時更新
         } else if (data.status === 'FAILED') {
           logger.error(`輪詢嘗試 ${attempts}: 報告處理失敗 (JobId: ${jobIdToPoll})`, data.message);
           clearInterval(pollingIntervalRef.current); 
           setIsProcessingReport(false);
           setProcessingStatusMessage(`報告處理失敗 (任務 ${jobIdToPoll}): ${data.message}`);
           setChatMessages(prev => [...prev, {id: Date.now(), text: `❌ 報告處理失敗 (任務 ${jobIdToPoll}): ${data.message}`, sender: 'system-error'}]);
-        } else if (reportStatusResponse.status === 404) {
+        } else if (reportStatusResponse.status === 404) { // JobId 在 DynamoDB 中還沒找到
             if (attempts < 6) { 
                 logger.info(`輪詢嘗試 ${attempts}: 任務 ${jobIdToPoll} 尚未在追蹤系統中找到 (404)，繼續嘗試...`);
                 setProcessingStatusMessage(`等待任務 ${jobIdToPoll} 註冊於追蹤系統... (嘗試 ${attempts})`);
@@ -311,8 +335,7 @@ const NessusAIPage = () => {
         }
       } catch (error) { 
         logger.error(`輪詢嘗試 ${attempts}: 網路錯誤或 API 呼叫失敗 (JobId: ${jobIdToPoll})`, error);
-        // 如果連續多次網路錯誤，也應該考慮停止輪詢
-        if (attempts > maxAttempts - 5) { // 例如，在最後幾次嘗試時如果還是網路錯誤，就停止
+        if (attempts > maxAttempts - 3) { // 在最後幾次嘗試時如果還是網路錯誤，就停止
             clearInterval(pollingIntervalRef.current); setIsProcessingReport(false);
             setProcessingStatusMessage(`輪詢因網路問題多次失敗 (任務 ${jobIdToPoll})。`);
             setChatMessages(prev => [...prev, {id: Date.now(), text: `⚠️ 輪詢 API 失敗多次，請檢查網路。`, sender: 'system-error'}]);
@@ -321,10 +344,33 @@ const NessusAIPage = () => {
     }, pollIntervalMs);
   };
 
-  const sendChatMessage = async () => { /* ... (與之前版本相同) ... */ };
-  const osPathBaseName = (path, removeExtension = false) => { /* ... (與之前版本相同) ... */ };
+  const sendChatMessage = async () => { 
+    if (!chatInput.trim() || !reportReady || isChatProcessing) return;
+    const newUserMessage = { id: Date.now(), text: chatInput, sender: 'user' };
+    setChatMessages(prev => [...prev, newUserMessage]);
+    const currentQuery = chatInput; setChatInput('');
+    setIsChatProcessing(true); setChatError('');
+    try {
+      const chatApiResponse = await fetch(CHAT_API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: currentQuery, s3Bucket: reportS3BucketForChat, s3Key: reportS3KeyForChat, jobId: currentJobId }),
+      });
+      if (!chatApiResponse.ok) {
+        const errorData = await chatApiResponse.json().catch(()=>({error: "AI服務回應非JSON"}));
+        throw new Error(errorData.error || 'AI 服務回應錯誤。');
+      }
+      const data = await chatApiResponse.json();
+      const aiMessage = { id: Date.now() + 1, text: data.answer || "AI 未提供有效回答。", sender: 'ai' };
+      setChatMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      logger.error("Chat API 錯誤:", error); setChatError(`與 AI 溝通錯誤: ${error.message}`);
+      setChatMessages(prev => [...prev, { id: Date.now() + 1, text: `🤖 AI 回應錯誤: ${error.message}`, sender: 'system-error' }]);
+    } finally { setIsChatProcessing(false); }
+  };
+  
+  const osPathBaseName = (path, removeExtension = false) => { if (!path) return ''; let base = path.substring(path.lastIndexOf('/') + 1); if (removeExtension) { const lastDot = base.lastIndexOf('.'); if (lastDot !== -1) base = base.substring(0, lastDot); } return base; };
 
-  return ( /* ... (JSX 結構與  基本相同) ... */ 
+  return ( 
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white p-4 sm:p-6 flex flex-col items-center font-sans">
       <header className="w-full max-w-4xl mb-6 sm:mb-10 text-center">
         <div className="flex items-center justify-center mb-2">
@@ -339,7 +385,8 @@ const NessusAIPage = () => {
       </header>
 
       <main className="w-full max-w-3xl bg-gray-800/80 backdrop-blur-md p-6 sm:p-8 rounded-xl shadow-2xl border border-gray-700/50">
-        {!currentJobId && !isProcessingReport && (
+        {/* 檔案上傳區: 只有在沒有 currentJobId (即全新任務) 且不在處理中時才顯示 */}
+        {(!currentJobId || !isProcessingReport) && !reportReady && ( // 調整顯示條件
           <section id="upload-section" className="mb-6">
             <h2 className="text-xl sm:text-2xl font-semibold text-purple-300 mb-4 flex items-center">
               <UploadCloud className="w-6 h-6 mr-2" /> 步驟 1: 上傳 ZIP 報告檔案
@@ -360,23 +407,18 @@ const NessusAIPage = () => {
                 </div>
               )}
             </div>
-            {isUploading && ( 
-              <div className="mt-4">
-                <div className="w-full bg-gray-700 rounded-full h-2.5"><div className="bg-purple-600 h-2.5 rounded-full transition-all duration-100" style={{ width: `${Math.round(uploadProgress)}%` }}></div></div>
-                <p className="text-center text-purple-300 text-sm mt-1">{processingStatusMessage || (uploadProgress > 0 ? `${Math.round(uploadProgress)}% 已上傳` : "準備上傳...")}</p>
-              </div>
-            )}
+            {/* isUploading 現在只用於 S3 PUT 階段，不在這裡顯示進度條，processingStatusMessage 會顯示整體狀態 */}
             {selectedFiles.length > 0 && (
-              <button onClick={handleUploadAndProcess} disabled={isUploading}
+              <button onClick={handleUploadAndProcess} disabled={isUploading || isProcessingReport} /* 增加 isProcessingReport 禁用 */
                 className="mt-6 w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 ease-in-out disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center shadow-lg hover:shadow-purple-500/50">
-                {isUploading ? (<><Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5" />上傳處理中...</>) : (<><UploadCloud className="mr-2 h-5 w-5" />開始上傳並處理</>)}
+                {(isUploading || isProcessingReport) ? (<><Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5" />處理中...</>) : (<><UploadCloud className="mr-2 h-5 w-5" />開始上傳並處理</>)}
               </button>
             )}
             {uploadError && (<p className="text-red-400 mt-3 text-sm flex items-center justify-center"><AlertCircle className="w-4 h-4 mr-1" /> {uploadError}</p>)}
           </section>
         )}
 
-         {(currentJobId || isProcessingReport) && !reportReady && (
+         {(currentJobId && isProcessingReport) && !reportReady && ( // 只有當有 jobId 且在處理中才顯示
              <section id="processing-status-section" className="mb-6 text-center p-6 bg-blue-900/30 rounded-lg border border-blue-700">
                 <Loader2 className="w-10 h-10 text-blue-400 mx-auto mb-3 animate-spin" />
                 <h2 className="text-xl sm:text-2xl font-semibold text-blue-400 mb-2">報告處理中</h2>
@@ -397,7 +439,7 @@ const NessusAIPage = () => {
                 <Download className="mr-2 h-5 w-5" /> 下載報告
                 </a>
                 <button 
-                    onClick={() => { resetTaskStates(true); /* setSelectedFiles([]); // 已在 resetTaskStates 中處理 */ }} 
+                    onClick={() => { resetTaskStates(true, true); /* initiatingNewJob=true, fromNewFileSelection=true */ }} 
                     className="inline-flex items-center justify-center bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 px-6 rounded-lg transition-colors shadow-md w-full sm:w-auto"
                 >
                     <RefreshCw className="mr-2 h-5 w-5" /> 處理新報告
