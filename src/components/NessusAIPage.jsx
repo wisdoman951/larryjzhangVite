@@ -353,41 +353,50 @@ const NessusAIPage = () => {
     }, pollIntervalMs);
   };
 
-  const sendChatMessage = async () => { 
-    if (!chatInput.trim() || !reportReady || isChatProcessing) return;
-    const newUserMessage = { id: Date.now(), text: chatInput, sender: 'user' };
+  // 修改 sendChatMessage 以接受一個可選的 query 參數
+  const sendChatMessage = async (predefinedQuery = null) => { 
+    const queryToSend = predefinedQuery || chatInput.trim();
+    if (!queryToSend || !reportReady || isChatProcessing) {
+        if (!predefinedQuery && !chatInput.trim()) logger.warn("sendChatMessage: 輸入為空。");
+        return;
+    }
+
+    const newUserMessage = { id: Date.now(), text: queryToSend, sender: 'user' };
     setChatMessages(prev => [...prev, newUserMessage]);
-    const currentQuery = chatInput; setChatInput('');
+    
+    if (!predefinedQuery) { // 如果不是預定義查詢，才清空輸入框
+        setChatInput('');
+    }
     setIsChatProcessing(true); setChatError('');
-    setCurrentChartData(null); // 清除上一個聊天可能產生的圖表
+    setCurrentChartData(null); 
 
     try {
       const chatApiResponse = await fetch(CHAT_API, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-            query: currentQuery, 
+            query: queryToSend, 
             s3Bucket: reportS3BucketForChat, 
             s3Key: reportS3KeyForChat, 
-            jobId: currentJobIdRef.current // 使用 ref 獲取最新的 jobId
+            jobId: currentJobIdRef.current 
         }),
       });
       if (!chatApiResponse.ok) {
         const errorData = await chatApiResponse.json().catch(()=>({error: "AI服務回應非JSON"}));
         throw new Error(errorData.error || 'AI 服務回應錯誤。');
       }
-      const data = await chatApiResponse.json(); // 期望 data 包含 { answer: "...", chartData: { ... } }
+      const data = await chatApiResponse.json(); 
       
       const aiMessage = { 
         id: Date.now() + 1, 
         text: data.answer || "AI 未提供有效回答。", 
         sender: 'ai',
-        chartData: data.chartData || null // 將圖表數據附加到 AI 訊息上
+        chartData: data.chartData || null 
       };
       setChatMessages(prev => [...prev, aiMessage]);
 
       if (data.chartData) {
         logger.info("收到圖表數據:", data.chartData);
-        setCurrentChartData(data.chartData); // 設定圖表數據以供渲染
+        setCurrentChartData(data.chartData); 
       }
 
     } catch (error) {
@@ -404,7 +413,16 @@ const NessusAIPage = () => {
     return base;
   };  
   const PIE_CHART_COLORS = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
-
+	// 建議的圖表查詢列表
+  const suggestedChartQueries = [
+    { 
+      label: "顯示弱點風險等級分佈圖", 
+      query: "請生成弱點風險等級分佈圖", 
+      icon: <BarChart2 size={18} className="mr-2" /> 
+    },
+    // 您可以在此處添加更多建議查詢，例如：
+    // { label: "顯示前五大弱點 Plugin ID", query: "列出前五個最常見的 Plugin ID 及其風險等級和數量", icon: <FileText size={18} className="mr-2" /> },
+  ];
   return ( /* ... (JSX 結構與之前版本基本相同) ... */ 
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white p-4 sm:p-6 flex flex-col items-center font-sans">
       <header className="w-full max-w-4xl mb-6 sm:mb-10 text-center">
@@ -518,36 +536,78 @@ const NessusAIPage = () => {
           </div>
           {chatError && (<p className="text-red-400 mt-2 text-sm flex items-center"><AlertCircle className="w-4 h-4 mr-1" /> {chatError}</p>)}
         </section>
-		{/* 圖表顯示區 - 新增 */}
+		{/* 圖表顯示區 */}
         {reportReady && currentChartData && currentChartData.type === 'risk_distribution' && (
-          <section id="chart-display-section" className="my-8 p-6 bg-slate-700/50 rounded-lg">
+          <section id="chart-display-section" className="my-8 p-6 bg-slate-700/50 rounded-lg border border-slate-600">
             <h3 className="text-xl font-semibold text-purple-300 mb-4 flex items-center">
               <BarChart2 className="w-5 h-5 mr-2"/> {currentChartData.title || "風險分佈圖"}
             </h3>
-            <div style={{ width: '100%', height: 300 }}> {/* Recharts 需要明確的寬高 */}
+            <div style={{ width: '100%', height: 300 }}>
               <ResponsiveContainer>
-                <BarChart data={currentChartData.data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <BarChart data={currentChartData.data} margin={{ top: 5, right: 30, left: 0, bottom: 20 }}> {/* 增加 bottom margin 給 X軸標籤 */}
                   <CartesianGrid strokeDasharray="3 3" stroke="#555" />
-                  <XAxis dataKey="name" stroke="#ccc" />
+                  <XAxis dataKey="name" stroke="#ccc" angle={-30} textAnchor="end" height={50} interval={0} /> {/* X軸標籤傾斜 */}
                   <YAxis stroke="#ccc" allowDecimals={false} />
                   <Tooltip 
-                    contentStyle={{ backgroundColor: '#333', border: '1px solid #555', borderRadius: '0.5rem' }} 
+                    contentStyle={{ backgroundColor: 'rgba(50, 50, 50, 0.9)', border: '1px solid #555', borderRadius: '0.5rem', boxShadow: '0 2px 10px rgba(0,0,0,0.5)' }} 
                     itemStyle={{ color: '#eee' }}
-                    cursor={{fill: 'rgba(128, 128, 128, 0.2)'}}
+                    labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                    cursor={{fill: 'rgba(128, 128, 128, 0.3)'}}
                   />
-                  <Legend wrapperStyle={{ color: '#ccc' }} />
-                  <Bar dataKey="數量" fill="#8884d8" radius={[4, 4, 0, 0]} />
-                  {/* 您可以為不同的 Bar 指定不同的顏色，如果數據中有顏色資訊 */}
-                  {/* <Bar dataKey="數量">
+                  <Legend wrapperStyle={{ color: '#ccc', paddingTop: '10px' }} />
+                  <Bar dataKey="數量" radius={[4, 4, 0, 0]}>
                     {currentChartData.data.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
                     ))}
-                  </Bar> */}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </section>
         )}
+		<section id="chat-section" className="mt-8">
+           <h2 className="text-xl sm:text-2xl font-semibold text-purple-300 mb-4 flex items-center">
+            <MessageSquare className="w-6 h-6 mr-2" /> {reportReady ? "AI 報告問答" : "AI 報告問答 (等待報告就緒)"}
+          </h2>
+          <div ref={chatContainerRef} className="bg-gray-700/60 p-3 sm:p-4 rounded-lg h-72 sm:h-96 overflow-y-auto mb-4 shadow-inner border border-gray-600/50">
+            {/* ... (聊天訊息渲染) ... */}
+          </div>
+
+          {/* 建議查詢按鈕區 - 新增 */}
+          {reportReady && !isChatProcessing && (
+            <div className="my-4 p-4 bg-slate-700/30 rounded-lg border border-slate-600/40">
+              <h4 className="text-sm font-semibold text-purple-200 mb-3">建議的圖表查詢：</h4>
+              <div className="flex flex-wrap gap-2">
+                {suggestedChartQueries.map((sq, index) => (
+                  <button
+                    key={index}
+                    onClick={() => sendChatMessage(sq.query)} // 點擊直接發送預定義查詢
+                    disabled={isChatProcessing || !reportReady}
+                    className="flex items-center bg-purple-600 hover:bg-purple-700 text-white text-xs sm:text-sm font-medium py-2 px-3 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {sq.icon}
+                    {sq.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+		  <div className="flex items-center gap-2 sm:gap-3">
+            <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} 
+                   onKeyUp={(e) => e.key === 'Enter' && sendChatMessage()} // 按 Enter 也發送
+              disabled={!reportReady || isUploading || isProcessingReport || isChatProcessing}
+              placeholder={reportReady ? "或在此輸入您的問題..." : "請等待報告處理完成"}
+              className="flex-grow bg-gray-600/70 border border-gray-500 text-white placeholder-gray-400 rounded-lg p-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+            <button onClick={() => sendChatMessage()} // 修改為不帶參數，它會使用 chatInput 的值
+                    disabled={!reportReady || isUploading || isProcessingReport || isChatProcessing || !chatInput.trim()}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-bold p-3 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center aspect-square"
+              aria-label="發送訊息">
+              {isChatProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : <Send className="h-5 w-5" />}
+            </button>
+          </div>
+          {chatError && (<p className="text-red-400 mt-2 text-sm flex items-center"><AlertCircle className="w-4 h-4 mr-1" /> {chatError}</p>)}
+        </section>
       </main>
       <footer className="w-full max-w-4xl mt-10 sm:mt-16 text-center text-gray-500 text-xs sm:text-sm">
         <p>&copy; {new Date().getFullYear()} Nessus AI 分析助手. Powered by AWS Bedrock.</p>
