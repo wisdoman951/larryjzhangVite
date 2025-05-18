@@ -1,4 +1,4 @@
-// src/components/MainLayout.js
+// src/components/MainLayout.jsx (假設檔案名稱為 .jsx)
 import React, { useEffect, useCallback } from 'react';
 import Particles from "react-tsparticles"; // 從 npm 引入
 import { loadSlim } from "tsparticles-slim"; // 從 npm 引入
@@ -19,7 +19,7 @@ const spaceParticlesOptions = {
         modes: {
             bubble: { distance: 100, duration: 2, opacity: 0.8, size: 3, color: "#50C8FF" },
             push: { quantity: 4 },
-            repulse: { distance: 100 } // 可以保留 repulse，如果想用
+            repulse: { distance: 100 }
         }
     },
     particles: {
@@ -32,7 +32,7 @@ const spaceParticlesOptions = {
             random: true,
             speed: 0.2, // 非常緩慢的飄浮
             straight: false,
-			draft: 0.21
+            // draft: 0.21 // 'draft' 不是一個標準的 tsparticles move 選項，通常是 'attract', 'trail' 等，此處移除或確認其用途
         },
         number: {
             density: { enable: true, area: 900 }, // 調整密度
@@ -64,7 +64,6 @@ const MainLayout = ({ children }) => {
   
   
   // --- "Larry's Probation Demo" 文字的通用樣式函數 ---
-  // 這樣方便我們為多個文字實例調整相似的樣式
   const getDemoTextStyle = (topPosition, leftPosition, fontSizeClamp, rotation = -2) => ({
       position: 'fixed',
       top: topPosition,
@@ -73,42 +72,39 @@ const MainLayout = ({ children }) => {
       color: '#FFFFFF',
       fontSize: fontSizeClamp, 
       fontWeight: 'bold',
-      textShadow: '0 0 6px #fff, 0 0 10px #fff, 0 0 18px #00A1DE, 0 0 28px #00A1DE, 0 0 38px #86BC25, 0 0 48px #86BC25', // 調整陰影使其更柔和或更突出
-      zIndex: 5, // 確保在粒子背景之上，但在主要互動內容之下或同級
+      textShadow: '0 0 6px #fff, 0 0 10px #fff, 0 0 18px #00A1DE, 0 0 28px #00A1DE, 0 0 38px #86BC25, 0 0 48px #86BC25',
+      zIndex: 1, // 確保在粒子背景 (z-index: 0) 之上，但在主要內容 (z-index: 10) 之下
       pointerEvents: 'none',
       textAlign: 'center',
       whiteSpace: 'nowrap',
-      fontFamily: "'Orbitron', 'Cutive Mono', 'Courier New', monospace", // 加入更多備選字體
+      fontFamily: "'Orbitron', 'Cutive Mono', 'Courier New', monospace",
       letterSpacing: '0.05em',
-      opacity: 0.9 // 可以略微透明，更好地融入背景
+      opacity: 0.9 
   });
   
- return (
-    <div className="relative min-h-screen w-full bg-slate-900">
-      <div id="tsparticles-background" className="fixed inset-0 z-0 opacity-90"></div>
+  return (
+    <div className="relative min-h-screen w-full bg-slate-900"> {/* 基礎背景色，粒子載入失敗時可見 */}
+      
+      {/* ***** 新增 Particles 元件 ***** */}
+      <Particles
+        id="tsparticles-background" // 可以與之前的 div id 相同，或者直接用這個元件
+        init={particlesInit}
+        loaded={particlesLoaded}
+        options={spaceParticlesOptions}
+        className="fixed inset-0 z-0 opacity-90" // 使用 className 來套用 fixed 和 z-index
+      />
       
       {/* --- 第一個 "Larry's Probation Demo" (上方) --- */}
       <div 
-        style={getDemoTextStyle(
-            '15%', // 調整垂直位置 (例如：距離頂部 15%)
-            '25%', // 調整水平位置 (例如：距離左側 25%)
-            'clamp(1.8rem, 4vw, 3rem)', // 調整字體大小
-            2 // 輕微旋轉角度
-        )}
-        className="select-none animate-pulse" // 可以保留或移除 animate-pulse
+        style={getDemoTextStyle('15%', '25%', 'clamp(1.8rem, 4vw, 3rem)', 2)}
+        className="select-none animate-pulse"
       >
         Larry's Probation Demo
       </div>
 
-      {/* --- 第二個 "Larry's Probation Demo" (中間，您之前的版本) --- */}
-      {/* 我會稍微調整它的位置和大小，使其與新增的兩個有所區別或協調 */}
+      {/* --- 第二個 "Larry's Probation Demo" (中間) --- */}
       <div 
-        style={getDemoTextStyle(
-            '50%', // 垂直居中
-            '50%', // 水平居中
-            'clamp(2.5rem, 6vw, 4.5rem)', // 主要的、較大的文字
-            -3 // 旋轉角度
-        )}
+        style={getDemoTextStyle('50%', '50%', 'clamp(2.5rem, 6vw, 4.5rem)', -3)}
         className="select-none" 
       >
         Larry's Probation Demo
@@ -116,21 +112,17 @@ const MainLayout = ({ children }) => {
 
       {/* --- 第三個 "Larry's Probation Demo" (下方) --- */}
       <div 
-        style={getDemoTextStyle(
-            '85%', // 調整垂直位置 (例如：距離底部 15%，即頂部 85%)
-            '75%', // 調整水平位置 (例如：距離左側 75%)
-            'clamp(1.8rem, 4vw, 3rem)', // 與上方文字大小一致
-            1 // 輕微旋轉角度 (不同方向)
-        )}
+        style={getDemoTextStyle('85%', '75%', 'clamp(1.8rem, 4vw, 3rem)', 1)}
         className="select-none animate-pulse"
       >
         Larry's Probation Demo
       </div>
       
-      {/* 主要內容容器 (z-index 需要高於裝飾文字，但低於可能的彈出模態框等) */}
+      {/* 主要內容容器 */}
+      {/* z-index 設為 10，確保它在粒子背景和裝飾文字之上 */}
       <div className="relative z-10 flex flex-col min-h-screen"> 
-        <div className="flex flex-col flex-1"> {/* 移除 pt-[var(--header-height,0px)]，讓頁面元件自己處理 header 的 sticky */}
-          {children}
+        <div className="flex flex-col flex-1">
+          {children} {/* 這裡會渲染 Dashboard, NessusAIPage 等 */}
         </div>
       </div>
     </div>
