@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, MessageSquare, Send, Download, AlertCircle, Loader2, CheckCircle, RefreshCw, FileText } from 'lucide-react';
+import { UploadCloud, MessageSquare, Send, Download, AlertCircle, Loader2, CheckCircle, RefreshCw, FileText, BarChart2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+
 
 // --- API 端點 ---
 const GENERATE_PRESIGNED_URL_API = 'https://gdc4pbpk35.execute-api.ap-northeast-1.amazonaws.com/prod/generate-presigned-url';
