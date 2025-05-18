@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, MessageSquare, Send, Download, AlertCircle, Loader2, CheckCircle, RefreshCw, FileText, BarChart2, ListChecks, HelpCircle, Activity } from 'lucide-react'; // Added more icons
+import { UploadCloud, MessageSquare, Send, Download, AlertCircle, Loader2, CheckCircle, RefreshCw, FileText, BarChart2, ListChecks, HelpCircle, Activity, Users, ShieldAlert, TrendingUp } from 'lucide-react'; // Added more icons
 import { v4 as uuidv4 } from 'uuid';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
@@ -33,7 +33,7 @@ const NessusAIPage = () => {
   const [chatMessages, setChatMessages] = useState([]);
   const [isChatProcessing, setIsChatProcessing] = useState(false);
   const [chatError, setChatError] = useState('');
-  const [currentChartData, setCurrentChartData] = useState(null); // 新增：存儲圖表數據
+  const [currentChartData, setCurrentChartData] = useState(null);
 
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
@@ -355,32 +355,6 @@ const NessusAIPage = () => {
     }, pollIntervalMs);
   };
 
-	const suggestedChartQueries = [
-		{ 
-		  label: "風險等級分佈圖", 
-		  query: "請生成弱點風險等級分佈圖", 
-		  icon: <BarChart2 size={18} className="mr-2" /> 
-		},
-		{ 
-		  label: "Critical 弱點總數", 
-		  query: "報告中有多少個 Critical 等級的弱點？", 
-		  icon: <AlertCircle size={18} className="mr-2 text-red-400" /> 
-		},
-		{ 
-		  label: "High 弱點總數", 
-		  query: "報告中有多少個 High 等級的弱點？", 
-		  icon: <Activity size={18} className="mr-2 text-orange-400" /> 
-		},
-		{
-		  label: "列出前3個Critical弱點",
-		  query: "請列出報告中前3個 Critical 等級弱點的名稱和受影響的 IP 位址。",
-		  icon: <ListChecks size={18} className="mr-2" />
-		},{
-		  label: "列出前3個Critical弱點",
-		  query: "哪個 IP 位址的 Critical 和 High 弱點總數最多？",
-		  icon: <ListChecks size={18} className="mr-2" />
-		}
-	  ];
   // 修改 sendChatMessage 以接受一個可選的 query 參數
   const sendChatMessage = async (predefinedQuery = null) => { 
     const queryToSend = predefinedQuery || chatInput.trim();
@@ -408,11 +382,23 @@ const NessusAIPage = () => {
             jobId: currentJobIdRef.current 
         }),
       });
+      const responseText = await chatApiResponse.text(); // 先獲取文字回應，方便調試
+      logger.info("Chat API Raw Response Text:", responseText);
+
       if (!chatApiResponse.ok) {
-        const errorData = await chatApiResponse.json().catch(()=>({error: "AI服務回應非JSON"}));
-        throw new Error(errorData.error || 'AI 服務回應錯誤。');
+        let errorMsg = 'AI 服務回應錯誤。';
+        try {
+            const errorData = JSON.parse(responseText); // 嘗試解析為 JSON
+            errorMsg = errorData.error || errorData.message || JSON.stringify(errorData);
+        } catch (e) {
+            // 如果解析失敗，responseText 可能包含 HTML 錯誤頁面或其他非 JSON 內容
+            errorMsg = `狀態 ${chatApiResponse.status}: ${responseText.substring(0,100)}...`;
+        }
+        throw new Error(errorMsg);
       }
-      const data = await chatApiResponse.json(); 
+      
+      const data = JSON.parse(responseText); // 如果 ok，再解析為 JSON
+      logger.info("Chat API Parsed Data:", data); // ***** 新增日誌 *****
       
       const aiMessage = { 
         id: Date.now() + 1, 
@@ -440,6 +426,15 @@ const NessusAIPage = () => {
     }
     return base;
   };  
+  const suggestedChartQueries = [
+    { label: "風險等級分佈圖", query: "請生成弱點風險等級分佈圖", icon: <BarChart2 size={18} className="mr-2" /> },
+    { label: "Critical 弱點總數", query: "報告中有多少個 Critical 等級的弱點？", icon: <AlertCircle size={18} className="mr-2 text-red-400" /> },
+    { label: "High 弱點總數", query: "報告中有多少個 High 等級的弱點？", icon: <Activity size={18} className="mr-2 text-orange-400" /> },
+    { label: "列出前3個Critical弱點 (名稱與IP)", query: "請列出報告中前3個 Critical 等級弱點的名稱和受影響的 IP 位址。", icon: <ListChecks size={18} className="mr-2" /> },
+    { label: "受影響最多的前3個IP (按總弱點數)", query: "哪些 IP 位址的弱點總數最多？請列出前三個。", icon: <Users size={18} className="mr-2" /> },
+    { label: "最常見的 Critical Plugin ID", query: "哪個 Plugin ID 導致了最多的 Critical 弱點？請提供 Plugin ID 和次數。", icon: <ShieldAlert size={18} className="mr-2 text-red-500" />},
+    { label: "風險趨勢 (假設性)", query: "如果這是系列報告，風險趨勢是上升還是下降？(此為概念性問題，AI可能基於單次報告回答)", icon: <TrendingUp size={18} className="mr-2" />},
+  ];
   return ( /* ... (JSX 結構與之前版本基本相同) ... */ 
     <div className="flex flex-col items-center font-sans">
       <header className="w-full max-w-4xl mb-6 sm:mb-10 text-center">
