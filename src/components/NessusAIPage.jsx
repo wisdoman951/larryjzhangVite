@@ -226,12 +226,16 @@ const NessusAIPage = () => {
             clearInterval(pollingIntervalRef.current); return;
         }
         if (data.status === 'COMPLETED' && reportStatusResponse.ok) {
-          logger.info("輪詢成功，報告已完成:", data); clearInterval(pollingIntervalRef.current);
-          setReportDownloadUrl(data.downloadUrl); setReportFileNameForDisplay(data.fileName);
-          setReportS3KeyForChat(data.s3Key); setReportS3BucketForChat(data.s3Bucket);
-          setReportReady(true); setIsProcessingReport(false);
+          logger.info("輪詢成功，報告已完成:", data);
+          clearInterval(pollingIntervalRef.current);
+          setReportDownloadUrl(data.downloadUrl);
+          setReportFileNameForDisplay(data.fileName);
+          setReportS3KeyForChat(data.s3Key); 
+          setReportS3BucketForChat(data.s3Bucket);
+          setReportReady(true); // << UI 更新為「報告就緒」
+          setIsProcessingReport(false); // << UI 停止「處理中」狀態
           setProcessingStatusMessage(`🎉 報告 "${data.fileName}" (任務 ${jobIdToPoll}) 已成功產生！`);
-          setChatMessages(prev => [...prev, {id: Date.now(), text: `🎉 報告 "${data.fileName}" 已就緒！`, sender: 'system'}]);
+          setChatMessages(prev => [...prev, {id: Date.now(), text: `🎉 報告 "${data.fileName}" 已就緒！您可以下載報告，或開始提問。`, sender: 'system'}]);
         } else if (data.status === 'PROCESSING' || data.status === 'UPLOADING' || reportStatusResponse.status === 202) {
           logger.info(`輪詢嘗試 ${attempts}: 報告仍在處理中 (JobId: ${jobIdToPoll}, 狀態: ${data.status || 'N/A'})`);
           setProcessingStatusMessage(`報告仍在處理中 (任務 ${jobIdToPoll}, 狀態: ${data.status || '未知'})...`);
