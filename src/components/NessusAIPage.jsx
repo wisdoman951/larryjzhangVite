@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, MessageSquare, Send, Download, AlertCircle, Loader2, CheckCircle, RefreshCw, FileText, BarChart2 } from 'lucide-react';
+import { UploadCloud, MessageSquare, Send, Download, AlertCircle, Loader2, CheckCircle, RefreshCw, FileText, BarChart2, ListChecks, HelpCircle, Activity } from 'lucide-react'; // Added more icons
 import { v4 as uuidv4 } from 'uuid';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+
 
 
 // --- API 端點 ---
