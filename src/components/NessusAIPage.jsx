@@ -424,6 +424,7 @@ const NessusAIPage = () => {
     // { label: "顯示前五大弱點 Plugin ID", query: "列出前五個最常見的 Plugin ID 及其風險等級和數量", icon: <FileText size={18} className="mr-2" /> },
   ];
   return ( /* ... (JSX 結構與之前版本基本相同) ... */ 
+    <div className="items-center font-sans">
       <header className="w-full max-w-4xl mb-6 sm:mb-10 text-center">
         <div className="flex items-center justify-center mb-2">
           <FileText size={36} className="text-purple-400 mr-3" />
@@ -591,27 +592,12 @@ const NessusAIPage = () => {
               </div>
             </div>
           )}
-		  <div className="flex items-center gap-2 sm:gap-3">
-            <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} 
-                   onKeyUp={(e) => e.key === 'Enter' && sendChatMessage()} // 按 Enter 也發送
-              disabled={!reportReady || isUploading || isProcessingReport || isChatProcessing}
-              placeholder={reportReady ? "或在此輸入您的問題..." : "請等待報告處理完成"}
-              className="flex-grow bg-gray-600/70 border border-gray-500 text-white placeholder-gray-400 rounded-lg p-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <button onClick={() => sendChatMessage()} // 修改為不帶參數，它會使用 chatInput 的值
-                    disabled={!reportReady || isUploading || isProcessingReport || isChatProcessing || !chatInput.trim()}
-              className="bg-purple-600 hover:bg-purple-700 text-white font-bold p-3 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center aspect-square"
-              aria-label="發送訊息">
-              {isChatProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : <Send className="h-5 w-5" />}
-            </button>
-          </div>
-          {chatError && (<p className="text-red-400 mt-2 text-sm flex items-center"><AlertCircle className="w-4 h-4 mr-1" /> {chatError}</p>)}
-        </section>
       </main>
       <footer className="w-full max-w-4xl mt-10 sm:mt-16 text-center text-gray-500 text-xs sm:text-sm">
         <p>&copy; {new Date().getFullYear()} Nessus AI 分析助手. Powered by AWS Bedrock.</p>
         <p>請注意：AI 回答僅供參考，實際決策請依據完整報告和專業判斷。</p>
       </footer>
+    </div>
   );
 };
 export default NessusAIPage;
