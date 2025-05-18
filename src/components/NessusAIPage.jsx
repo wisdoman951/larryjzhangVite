@@ -519,40 +519,7 @@ const NessusAIPage = () => {
           </section>
         )}
         
-        <section id="chat-section" className="mt-8">
-           <h2 className="text-xl sm:text-2xl font-semibold text-purple-300 mb-4 flex items-center">
-            <MessageSquare className="w-6 h-6 mr-2" /> {reportReady ? "AI 報告問答" : "AI 報告問答 (等待報告就緒)"}
-          </h2>
-          <div ref={chatContainerRef} className="bg-gray-700/60 p-3 sm:p-4 rounded-lg h-72 sm:h-96 overflow-y-auto mb-4 shadow-inner border border-gray-600/50">
-            {chatMessages.map((message) => (
-              <div key={message.id} className={`mb-3 flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-xs sm:max-w-md lg:max-w-lg p-2.5 sm:p-3 rounded-xl shadow break-words ${
-                    message.sender === 'user' ? 'bg-purple-600 text-white rounded-br-none' :
-                    message.sender === 'ai' ? 'bg-gray-600 text-gray-200 rounded-bl-none' :
-                    message.sender === 'system-error' ? 'bg-red-800/80 text-red-100 text-center w-full py-2' : 
-                    'bg-transparent text-gray-400 italic text-center w-full py-2'
-                  }`}
-                >
-                  <p className="text-sm sm:text-base whitespace-pre-wrap">{message.text}</p>
-                </div>
-              </div>
-            ))}
-            {isChatProcessing && ( <div className="flex justify-start mb-3"> <div className="max-w-xs p-2.5 rounded-xl shadow bg-gray-600"><Loader2 className="animate-spin h-5 w-5 text-purple-300" /></div></div>)}
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyUp={(e) => e.key === 'Enter' && sendChatMessage()}
-              disabled={!reportReady || isUploading || isProcessingReport || isChatProcessing}
-              placeholder={reportReady ? "請在此輸入您對報告的問題..." : "請等待報告處理完成"}
-              className="flex-grow bg-gray-600/70 border border-gray-500 text-white placeholder-gray-400 rounded-lg p-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <button onClick={sendChatMessage} disabled={!reportReady || isUploading || isProcessingReport || isChatProcessing || !chatInput.trim()}
-              className="bg-purple-600 hover:bg-purple-700 text-white font-bold p-3 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center aspect-square"
-              aria-label="發送訊息">
-              {isChatProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : <Send className="h-5 w-5" />}
-            </button>
-          </div>
-          {chatError && (<p className="text-red-400 mt-2 text-sm flex items-center"><AlertCircle className="w-4 h-4 mr-1" /> {chatError}</p>)}
-        </section>
+        
 		{/* 圖表顯示區 */}
         {reportReady && currentChartData && currentChartData.type === 'risk_distribution' && (
           <section id="chart-display-section" className="my-8 p-6 bg-slate-700/50 rounded-lg border border-slate-600">
