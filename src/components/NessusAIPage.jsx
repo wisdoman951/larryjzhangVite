@@ -198,72 +198,127 @@ const NessusAIPage = () => {
   };
   
   const startPollingForReport = (jobIdToPoll) => {
-    // ... (輪詢邏輯與  中的相同) ...
-    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    if (pollingIntervalRef.current) {
+      // 清除之前可能存在的輪詢，確保每個任務只有一個輪詢實例
+      clearInterval(pollingIntervalRef.current);
+    }
     let attempts = 0;
     const maxAttempts = 36; 
     const pollIntervalMs = 10000;
     logger.info(`輪詢啟動: jobId=${jobIdToPoll}, API=${CHECK_REPORT_STATUS_API}, interval=${pollIntervalMs}ms, maxAttempts=${maxAttempts}`);
+    
     pollingIntervalRef.current = setInterval(async () => {
       attempts++;
-      if (attempts > maxAttempts && jobIdToPoll === currentJobId) { 
+      // 輪詢超時檢查 (基於嘗試次數)
+      if (attempts > maxAttempts) { 
+        logger.warn(`輪詢 jobId ${jobIdToPoll} 已達到最大嘗試次數 ${maxAttempts}。`);
         clearInterval(pollingIntervalRef.current); 
-        if (isProcessingReport) { 
+        // 只有當這個超時的 jobId 仍然是當前 UI 正在關注的 jobId 時，才更新 UI 為超時狀態
+        if (jobIdToPoll === currentJobId && isProcessingReport) { 
             setIsProcessingReport(false);
             setProcessingStatusMessage(`報告處理超時 (任務 ${jobIdToPoll})。`);
-            setChatMessages(prev => [...prev, {id: Date.now(), text: `⚠️ 任務 ${jobIdToPoll} 報告處理超時。`, sender: 'system-error'}]);
+            setChatMessages(prev => [...prev, {id: Date.now(), text: `⚠️ 任務 ${jobIdToPoll} 報告處理超時。請檢查S3或稍後重試。`, sender: 'system-error'}]);
         }
         return;
       }
+
+      // 如果在輪詢期間，currentJobId 變成了與 jobIdToPoll 不同的 *非null值*，
+      // 這意味著一個新任務已經明確開始，可以考慮停止舊的輪詢。
+      // 但如果 currentJobId 變為 null，可能只是狀態重置，我們仍然需要檢查這次API呼叫的結果。
+      if (currentJobId && jobIdToPoll !== currentJobId) {
+          logger.warn(`全局 currentJobId (${currentJobId}) 與此輪詢的 jobId (${jobIdToPoll}) 不同，停止此舊輪詢。`);
+          clearInterval(pollingIntervalRef.current);
+          return;
+      }
+
       setProcessingStatusMessage(`正在檢查報告狀態 (任務 ${jobIdToPoll}, 嘗試 ${attempts}/${maxAttempts})...`);
+      
       try {
         const apiUrl = `${CHECK_REPORT_STATUS_API}?jobId=${encodeURIComponent(jobIdToPoll)}`;
-        logger.info(`輪詢 API: ${apiUrl}`);
+        logger.info(`輪詢 API (為 jobId ${jobIdToPoll}): ${apiUrl}`);
         const reportStatusResponse = await fetch(apiUrl);
         const data = await reportStatusResponse.json();
-        if (jobIdToPoll !== currentJobId) { 
-            logger.warn(`當前 jobId 已變為 ${currentJobId}，停止對舊 jobId ${jobIdToPoll} 的輪詢。`);
-            clearInterval(pollingIntervalRef.current); return;
+
+        // 首先檢查 API 返回的 jobId 是否與我們輪詢的 jobId 一致
+        if (data.jobId && data.jobId !== jobIdToPoll) {
+            logger.warn(`API 返回的 jobId (${data.jobId}) 與輪詢的 jobId (${jobIdToPoll}) 不匹配，忽略此回應。`);
+            return; // 忽略這個回應，等待下一次輪詢或超時
         }
+
+        // 處理 COMPLETED 狀態 (最優先)
         if (data.status === 'COMPLETED' && reportStatusResponse.ok) {
-          logger.info("輪詢成功，報告已完成! 收到的數據:", JSON.stringify(data, null, 2)); // 打印完整數據
-          clearInterval(pollingIntervalRef.current);
+          logger.info(`輪詢成功 (為 jobId ${jobIdToPoll})，報告已完成! 收到的數據:`, JSON.stringify(data, null, 2));
+          clearInterval(pollingIntervalRef.current); // 任務完成，停止輪詢
 
-          alert(`測試：報告 ${data.fileName} 已完成！下載URL: ${data.downloadUrl}`); // 用 alert 强制提示
+          // 只有當這個完成的 jobId 仍然是 UI 當前關注的 jobId 時，才更新 UI
+          // 或者，如果 currentJobId 是 null (可能剛被重置)，但完成的 jobId 是我們剛啟動的，也應該更新。
+          // 為簡化，如果 jobIdToPoll 完成了，我们就相信它是当前应该更新的，
+          // 前提是 resetStateBeforeNewUpload 已经被正确管理。
+          // 最好的做法是，當一個新任務開始時 (handleUploadAndProcess)，它應該確保舊的 pollingIntervalRef 被清除。
+          // 此處我們已在 startPollingForReport 開頭清除了舊的 interval。
 
+          // 更新狀態
           setReportDownloadUrl(data.downloadUrl);
           setReportFileNameForDisplay(data.fileName);
           setReportS3KeyForChat(data.s3Key); 
           setReportS3BucketForChat(data.s3Bucket);
+          
+          // 確保這些狀態更新是針對當前用戶界面正在追蹤的 jobId
+          // 如果 currentJobId 已經改變，這些 set 狀態可能不會影響預期，
+          // 但至少這個 jobIdToPoll 的輪詢已經結束了。
+          // 為了確保 UI 正確，僅在 jobIdToPoll 仍是 currentJobId (或 currentJobId 為 null 且 jobIdToPoll 是剛啟動的那個)時更新
+          if (jobIdToPoll === currentJobId || currentJobId === null /*表示新任務剛啟動，還未被其他操作重置*/) {
+            setIsProcessingReport(false); 
+            setReportReady(true);       
+            setProcessingStatusMessage(`🎉 報告 "${data.fileName}" (任務 ${jobIdToPoll}) 已成功產生！`);
+            setChatMessages(prev => [...prev.filter(m=>m.sender !== 'system-error'), {id: Date.now(), text: `🎉 報告 "${data.fileName}" 已就緒！您可以下載報告，或開始提問。`, sender: 'system'}]);
+          } else {
+            logger.warn(`報告 jobId ${jobIdToPoll} 已完成，但當前 UI 關注的 jobId 是 ${currentJobId}。將不更新主 UI 狀態。`);
+          }
+          return; // 已處理 COMPLETED，結束此次 interval 回調
+        }
 
-          setIsProcessingReport(false); // 先設置這個
-          setReportReady(true);       // 再設置這個，觀察 UI 是否變化
+        // 如果全局 currentJobId 在 API 呼叫後變為 null (表示用戶可能重置了流程)
+        // 並且我們剛剛處理的 jobIdToPoll 不是那個短暫變為 null 的 currentJobId
+        if (currentJobId === null && jobIdToPoll) {
+             logger.warn(`全局 currentJobId 已變為 null，但輪詢的 jobId ${jobIdToPoll} 尚未完成。停止此輪詢以避免衝突。`);
+             clearInterval(pollingIntervalRef.current);
+             return;
+        }
 
-          setProcessingStatusMessage(`🎉 報告 "${data.fileName}" (任務 ${jobIdToPoll}) 已成功產生！`);
-          setChatMessages(prev => {
-              const newMessages = [...prev, {id: Date.now(), text: `🎉 報告 "${data.fileName}" 已就緒！您可以下載報告，或開始提問。`, sender: 'system'}];
-              logger.info("準備更新聊天訊息為:", newMessages);
-              return newMessages;
-          });
-        } else if (data.status === 'PROCESSING' || data.status === 'UPLOADING' || reportStatusResponse.status === 202) {
-          logger.info(`輪詢嘗試 ${attempts}: 報告仍在處理中 (JobId: ${jobIdToPoll}, 狀態: ${data.status || 'N/A'})`);
-          setProcessingStatusMessage(`報告仍在處理中 (任務 ${jobIdToPoll}, 狀態: ${data.status || '未知'})...`);
+
+        // 處理其他狀態 (PROCESSING, FAILED 等)
+        if (data.status === 'PROCESSING' || data.status === 'UPLOADING' || reportStatusResponse.status === 202) {
+          // 只有當這個輪詢的 jobId 仍然是當前 UI 關注的 jobId 時才更新處理中訊息
+          if (jobIdToPoll === currentJobId) {
+            logger.info(`輪詢嘗試 ${attempts}: 報告仍在處理中 (JobId: ${jobIdToPoll}, 狀態: ${data.status || 'N/A'})`);
+            setProcessingStatusMessage(`報告仍在處理中 (任務 ${jobIdToPoll}, 狀態: ${data.status || '未知'})...`);
+          } else {
+            // logger.info(`輪詢嘗試 ${attempts}: 舊 jobId ${jobIdToPoll} 仍在處理，但當前關注 ${currentJobId}。`);
+          }
         } else if (data.status === 'FAILED') {
           logger.error(`輪詢嘗試 ${attempts}: 報告處理失敗 (JobId: ${jobIdToPoll})`, data.message);
-          clearInterval(pollingIntervalRef.current); setIsProcessingReport(false);
-          setProcessingStatusMessage(`報告處理失敗 (任務 ${jobIdToPoll}): ${data.message}`);
-          setChatMessages(prev => [...prev, {id: Date.now(), text: `❌ 報告處理失敗 (任務 ${jobIdToPoll}): ${data.message}`, sender: 'system-error'}]);
+          clearInterval(pollingIntervalRef.current);
+          if (jobIdToPoll === currentJobId) { // 只更新當前關注的 job 的失敗狀態
+            setIsProcessingReport(false);
+            setProcessingStatusMessage(`報告處理失敗 (任務 ${jobIdToPoll}): ${data.message}`);
+            setChatMessages(prev => [...prev, {id: Date.now(), text: `❌ 報告處理失敗 (任務 ${jobIdToPoll}): ${data.message}`, sender: 'system-error'}]);
+          }
         } else { 
-          logger.warn(`輪詢嘗試 ${attempts}: 未預期的回應 (JobId: ${jobIdToPoll}, 狀態: ${reportStatusResponse.status})`, data);
-          if (reportStatusResponse.status === 404 && attempts < 6) { 
+          logger.warn(`輪詢嘗試 ${attempts}: 未預期的回應 (JobId: ${jobIdToPoll}, 狀態碼: ${reportStatusResponse.status})`, data);
+          if (reportStatusResponse.status === 404 && attempts < 6 && jobIdToPoll === currentJobId) { 
              setProcessingStatusMessage(`等待任務 ${jobIdToPoll} 註冊於追蹤系統... (嘗試 ${attempts})`);
-          } else if (reportStatusResponse.status === 404) { 
+          } else if (reportStatusResponse.status === 404 && jobIdToPoll === currentJobId) { 
              clearInterval(pollingIntervalRef.current); setIsProcessingReport(false);
              setProcessingStatusMessage(`無法找到任務 ${jobIdToPoll} 的追蹤記錄。`);
              setChatMessages(prev => [...prev, {id: Date.now(), text: `❌ 無法追蹤任務 ${jobIdToPoll}。`, sender: 'system-error'}]);
           }
         }
-      } catch (error) { logger.error(`輪詢嘗試 ${attempts}: 網路錯誤或 API 呼叫失敗 (JobId: ${jobIdToPoll})`, error); }
+      } catch (error) { 
+        logger.error(`輪詢嘗試 ${attempts}: 網路錯誤或 API 呼叫失敗 (JobId: ${jobIdToPoll})`, error);
+        // 除非達到最大次數，否則繼續輪詢
+        // 如果是網路錯誤，可能需要一個退避策略或更早停止
+      }
     }, pollIntervalMs);
   };
 
