@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, MessageSquare, Send, Download, AlertCircle, Loader2, CheckCircle, RefreshCw, FileText, BarChart2, ListChecks, HelpCircle, Activity, Users, ShieldAlert, TrendingUp } from 'lucide-react'; // Added more icons
+import { UploadCloud, MessageSquare, Send, Download, AlertCircle, Loader2, CheckCircle, RefreshCw, FileText, BarChart2, ListChecks, HelpCircle, Activity, Users, ShieldAlert, TrendingUp } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-
 
 
 // --- API 端點 ---
@@ -39,7 +38,7 @@ const NessusAIPage = () => {
   const fileInputRef = useRef(null);
   const chatContainerRef = useRef(null);
   const pollingIntervalRef = useRef(null); 
-  const PIE_CHART_COLORS = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+  const PIE_CHART_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#FF8042', '#0088FE', '#00C49F']; // 更新顏色
 
   const logger = {
     info: (message, ...args) => console.log(`[INFO] ${new Date().toISOString()}: ${message}`, ...args),
@@ -79,58 +78,27 @@ const NessusAIPage = () => {
   const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
 
   const resetTaskStates = (initiatingNewJob = false, fromNewFileSelection = false) => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-      logger.info("resetTaskStates: 已清除輪詢 interval。");
-    }
-    
-    setUploadError(''); 
-    setUploadProgress(0); 
-    setFilesUploadedCount(0);
-    
-    if (initiatingNewJob) {
-        logger.info(`resetTaskStates: 準備為新任務重置 currentJobId (之前是: ${currentJobIdRef.current})。`);
-        setCurrentJobId(null); // 這會觸發上面的 useEffect 來更新 currentJobIdRef.current
-    }
-    
-    setReportReady(false); 
-    setReportDownloadUrl(''); 
-    setReportS3KeyForChat('');
-    setReportS3BucketForChat(''); 
-    setReportFileNameForDisplay('');
-	setCurrentChartData(null);
+    if (pollingIntervalRef.current) { clearInterval(pollingIntervalRef.current); pollingIntervalRef.current = null; logger.info("resetTaskStates: 已清除輪詢 interval。");}
+    setUploadError(''); setUploadProgress(0); setFilesUploadedCount(0);
+    if (initiatingNewJob) { logger.info(`resetTaskStates: 為新任務重置 currentJobId (之前是: ${currentJobIdRef.current})。`); setCurrentJobId(null); }
+    setReportReady(false); setReportDownloadUrl(''); setReportS3KeyForChat(''); setReportS3BucketForChat(''); setReportFileNameForDisplay('');
+	  setCurrentChartData(null); 
     if (initiatingNewJob) { 
-        setIsProcessingReport(false); 
-        setProcessingStatusMessage('');
-        if (fromNewFileSelection) {
-             setChatMessages([{ id: Date.now(), text: '請選擇一個 ZIP 檔案以上傳。', sender: 'system' }]);
-        } else {
-             setChatMessages([{ id: Date.now(), text: '請上傳一個新的 ZIP 壓縮檔。', sender: 'system' }]);
-        }
+        setIsProcessingReport(false); setProcessingStatusMessage('');
+        const initialMsg = fromNewFileSelection ? '請選擇一個 ZIP 檔案以上傳。' : '請上傳一個新的 ZIP 壓縮檔。';
+        setChatMessages([{ id: Date.now(), text: initialMsg, sender: 'system' }]);
     }
   };
   const handleFilesValidation = (incomingFiles) => {
-    setSelectedFiles([]); 
-    setUploadError('');   
-
+    setSelectedFiles([]); setUploadError('');   
     if (!incomingFiles || incomingFiles.length === 0) return true;
-
-    if (incomingFiles.length > 1) {
-        setUploadError('請一次只上傳一個 ZIP 檔案。');
-        return false;
-    }
+    if (incomingFiles.length > 1) { setUploadError('請一次只上傳一個 ZIP 檔案。'); return false; }
     const file = incomingFiles[0];
-    if (!file.name.toLowerCase().endsWith('.zip')) {
-        setUploadError(`檔案格式錯誤：${file.name} 不是 ZIP 檔案。`);
-        return false;
-    }
-    setSelectedFiles([file]);
-    return true;
+    if (!file.name.toLowerCase().endsWith('.zip')) { setUploadError(`檔案格式錯誤：${file.name} 不是 ZIP 檔案。`); return false; }
+    setSelectedFiles([file]); return true;
   };
-
   const handleFileChange = (event) => {
-    if (isUploading || isProcessingReport) { // 直接使用 state 判斷即可
+    if (isUploading || isProcessingReport) { 
         logger.warn("handleFileChange: 操作被忽略，目前有任務正在上傳或處理中。");
         setUploadError("目前有任務正在處理中，請先等待其完成。");
         if (fileInputRef.current) fileInputRef.current.value = ""; 
@@ -362,13 +330,9 @@ const NessusAIPage = () => {
         if (!predefinedQuery && !chatInput.trim()) logger.warn("sendChatMessage: 輸入為空。");
         return;
     }
-
     const newUserMessage = { id: Date.now(), text: queryToSend, sender: 'user' };
     setChatMessages(prev => [...prev, newUserMessage]);
-    
-    if (!predefinedQuery) { // 如果不是預定義查詢，才清空輸入框
-        setChatInput('');
-    }
+    if (!predefinedQuery) { setChatInput(''); }
     setIsChatProcessing(true); setChatError('');
     setCurrentChartData(null); 
 
@@ -382,35 +346,31 @@ const NessusAIPage = () => {
             jobId: currentJobIdRef.current 
         }),
       });
-      const responseText = await chatApiResponse.text(); // 先獲取文字回應，方便調試
-      logger.info("Chat API Raw Response Text:", responseText);
+      
+      const responseText = await chatApiResponse.text();
+      logger.info("Chat API Raw Response Text:", responseText); // 查看原始回應
 
       if (!chatApiResponse.ok) {
         let errorMsg = 'AI 服務回應錯誤。';
-        try {
-            const errorData = JSON.parse(responseText); // 嘗試解析為 JSON
-            errorMsg = errorData.error || errorData.message || JSON.stringify(errorData);
-        } catch (e) {
-            // 如果解析失敗，responseText 可能包含 HTML 錯誤頁面或其他非 JSON 內容
-            errorMsg = `狀態 ${chatApiResponse.status}: ${responseText.substring(0,100)}...`;
-        }
+        try { const errorData = JSON.parse(responseText); errorMsg = errorData.error || errorData.message || JSON.stringify(errorData); } 
+        catch (e) { errorMsg = `狀態 ${chatApiResponse.status}: ${responseText.substring(0,100)}...`; }
         throw new Error(errorMsg);
       }
       
-      const data = JSON.parse(responseText); // 如果 ok，再解析為 JSON
-      logger.info("Chat API Parsed Data:", data); // ***** 新增日誌 *****
+      const data = JSON.parse(responseText); 
+      logger.info("Chat API Parsed Data:", data); // ***** 關鍵日誌 *****
       
       const aiMessage = { 
-        id: Date.now() + 1, 
-        text: data.answer || "AI 未提供有效回答。", 
-        sender: 'ai',
+        id: Date.now() + 1, text: data.answer || "AI 未提供有效回答。", sender: 'ai',
         chartData: data.chartData || null 
       };
       setChatMessages(prev => [...prev, aiMessage]);
 
-      if (data.chartData) {
-        logger.info("收到圖表數據:", data.chartData);
+      if (data.chartData && typeof data.chartData === 'object' && data.chartData.type) { // 增加對 chartData 結構的檢查
+        logger.info("收到有效的圖表數據，準備渲染:", data.chartData);
         setCurrentChartData(data.chartData); 
+      } else if (data.chartData) {
+        logger.warn("收到的 chartData 格式不符合預期:", data.chartData);
       }
 
     } catch (error) {
@@ -515,13 +475,38 @@ const NessusAIPage = () => {
         )}
         
         
-		{/* 圖表顯示區 */}
+		{/* 圖表顯示區 - 確保它在聊天區塊之前或之後，但不要在內部重複 */}
         {reportReady && currentChartData && currentChartData.type === 'risk_distribution' && (
           <section id="chart-display-section" className="my-8 p-6 bg-slate-700/50 rounded-lg border border-slate-600">
-            {/* ... (圖表 JSX 與之前版本相同) ... */}
+            <h3 className="text-xl font-semibold text-purple-300 mb-4 flex items-center">
+              <BarChart2 className="w-5 h-5 mr-2"/> {currentChartData.title || "風險分佈圖"}
+            </h3>
+            <div style={{ width: '100%', height: 300 }}>
+              <ResponsiveContainer>
+                <BarChart data={currentChartData.data} margin={{ top: 5, right: 30, left: 0, bottom: 35 }}> {/* 增加 bottom margin */}
+                  <CartesianGrid strokeDasharray="3 3" stroke="#555" />
+                  <XAxis dataKey="name" stroke="#ccc" angle={-35} textAnchor="end" height={60} interval={0} /> 
+                  <YAxis stroke="#ccc" allowDecimals={false} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'rgba(50, 50, 50, 0.9)', border: '1px solid #555', borderRadius: '0.5rem', boxShadow: '0 2px 10px rgba(0,0,0,0.5)' }} 
+                    itemStyle={{ color: '#eee' }}
+                    labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                    cursor={{fill: 'rgba(128, 128, 128, 0.3)'}}
+                  />
+                  <Legend wrapperStyle={{ color: '#ccc', paddingTop: '10px' }} />
+                  <Bar dataKey="數量" radius={[4, 4, 0, 0]}>
+                    {currentChartData.data.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </section>
         )}
-		<section id="chat-section" className="mt-8">
+        
+        {/* 唯一的聊天區塊 */}
+        <section id="chat-section" className="mt-8">
            <h2 className="text-xl sm:text-2xl font-semibold text-purple-300 mb-4 flex items-center">
             <MessageSquare className="w-6 h-6 mr-2" /> {reportReady ? "AI 報告問答" : "AI 報告問答 (等待報告就緒)"}
           </h2>
@@ -535,6 +520,7 @@ const NessusAIPage = () => {
                     'bg-transparent text-gray-400 italic text-center w-full py-2'
                   }`}
                 >
+                  {/* 渲染文字，如果 message.chartData 也存在，圖表會在外面單獨渲染 */}
                   <p className="text-sm sm:text-base whitespace-pre-wrap">{message.text}</p>
                 </div>
               </div>
@@ -544,13 +530,14 @@ const NessusAIPage = () => {
 
           {reportReady && !isChatProcessing && (
             <div className="my-4 p-4 bg-slate-700/30 rounded-lg border border-slate-600/40">
-              <h4 className="text-sm font-semibold text-purple-200 mb-3">建議查詢：</h4>
+              <h4 className="text-sm font-semibold text-purple-200 mb-3">建議查詢 (點擊發送)：</h4>
               <div className="flex flex-wrap gap-2">
                 {suggestedChartQueries.map((sq, index) => (
                   <button
                     key={index}
                     onClick={() => sendChatMessage(sq.query)}
                     disabled={isChatProcessing || !reportReady}
+                    title={sq.query} 
                     className="flex items-center bg-purple-600 hover:bg-purple-700 text-white text-xs sm:text-sm font-medium py-2 px-3 rounded-lg transition-colors disabled:opacity-50"
                   >
                     {sq.icon}
@@ -579,8 +566,7 @@ const NessusAIPage = () => {
         </section>
       </main>
       <footer className="w-full max-w-4xl mt-10 sm:mt-16 text-center text-gray-500 text-xs sm:text-sm">
-        <p>&copy; {new Date().getFullYear()} Nessus AI 分析助手. Powered by AWS Bedrock.</p>
-        <p>請注意：AI 回答僅供參考，實際決策請依據完整報告和專業判斷。</p>
+        {/* ... Footer ... */}
       </footer>
     </div>
   );
