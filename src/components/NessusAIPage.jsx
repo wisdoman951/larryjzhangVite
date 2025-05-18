@@ -439,16 +439,6 @@ const NessusAIPage = () => {
     }
     return base;
   };  
-	// 建議的圖表查詢列表
-  const suggestedChartQueries = [
-    { 
-      label: "顯示弱點風險等級分佈圖", 
-      query: "請生成弱點風險等級分佈圖", 
-      icon: <BarChart2 size={18} className="mr-2" /> 
-    },
-    // 您可以在此處添加更多建議查詢，例如：
-    // { label: "顯示前五大弱點 Plugin ID", query: "列出前五個最常見的 Plugin ID 及其風險等級和數量", icon: <FileText size={18} className="mr-2" /> },
-  ];
   return ( /* ... (JSX 結構與之前版本基本相同) ... */ 
     <div className="flex flex-col items-center font-sans">
       <header className="w-full max-w-4xl mb-6 sm:mb-10 text-center">
