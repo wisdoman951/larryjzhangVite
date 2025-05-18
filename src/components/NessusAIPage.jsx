@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UploadCloud, MessageSquare, Send, Download, AlertCircle, Loader2, CheckCircle, RefreshCw, FileText } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 // --- API 端點 ---
 const GENERATE_PRESIGNED_URL_API = 'https://gdc4pbpk35.execute-api.ap-northeast-1.amazonaws.com/prod/generate-presigned-url';
@@ -10,7 +11,7 @@ const CHECK_REPORT_STATUS_API = 'https://gdc4pbpk35.execute-api.ap-northeast-1.a
 const NessusAIPage = () => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [currentJobId, setCurrentJobId] = useState(null); 
-  const currentJobIdRef = useRef(currentJobId); // 新增 Ref 來追蹤最新的 currentJobId
+  const currentJobIdRef = useRef(currentJobId); 
 
   const [isUploading, setIsUploading] = useState(false); 
   const [uploadError, setUploadError] = useState('');
@@ -30,6 +31,7 @@ const NessusAIPage = () => {
   const [chatMessages, setChatMessages] = useState([]);
   const [isChatProcessing, setIsChatProcessing] = useState(false);
   const [chatError, setChatError] = useState('');
+  const [currentChartData, setCurrentChartData] = useState(null); // 新增：存儲圖表數據
 
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
@@ -94,6 +96,7 @@ const NessusAIPage = () => {
     setReportS3KeyForChat('');
     setReportS3BucketForChat(''); 
     setReportFileNameForDisplay('');
+	setCurrentChartData(null);
     if (initiatingNewJob) { 
         setIsProcessingReport(false); 
         setProcessingStatusMessage('');
@@ -104,7 +107,6 @@ const NessusAIPage = () => {
         }
     }
   };
-
   const handleFilesValidation = (incomingFiles) => {
     setSelectedFiles([]); 
     setUploadError('');   
@@ -310,6 +312,7 @@ const NessusAIPage = () => {
           setReportReady(true);       
           setProcessingStatusMessage(`🎉 報告 "${data.fileName}" (任務 ${jobIdToPoll}) 已成功產生！`);
           setChatMessages(prev => [...prev.filter(m=>m.sender !== 'system-error'), {id: Date.now(), text: `🎉 報告 "${data.fileName}" 已就緒！`, sender: 'system'}]);
+		  setCurrentChartData(null); // 報告剛就緒時，清除舊的圖表數據
           return; 
         }
         
@@ -349,8 +352,57 @@ const NessusAIPage = () => {
     }, pollIntervalMs);
   };
 
-  const sendChatMessage = async () => { /* ... (與之前版本相同) ... */ };
-  const osPathBaseName = (path, removeExtension = false) => { /* ... (與之前版本相同) ... */ };
+  const sendChatMessage = async () => { 
+    if (!chatInput.trim() || !reportReady || isChatProcessing) return;
+    const newUserMessage = { id: Date.now(), text: chatInput, sender: 'user' };
+    setChatMessages(prev => [...prev, newUserMessage]);
+    const currentQuery = chatInput; setChatInput('');
+    setIsChatProcessing(true); setChatError('');
+    setCurrentChartData(null); // 清除上一個聊天可能產生的圖表
+
+    try {
+      const chatApiResponse = await fetch(CHAT_API, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            query: currentQuery, 
+            s3Bucket: reportS3BucketForChat, 
+            s3Key: reportS3KeyForChat, 
+            jobId: currentJobIdRef.current // 使用 ref 獲取最新的 jobId
+        }),
+      });
+      if (!chatApiResponse.ok) {
+        const errorData = await chatApiResponse.json().catch(()=>({error: "AI服務回應非JSON"}));
+        throw new Error(errorData.error || 'AI 服務回應錯誤。');
+      }
+      const data = await chatApiResponse.json(); // 期望 data 包含 { answer: "...", chartData: { ... } }
+      
+      const aiMessage = { 
+        id: Date.now() + 1, 
+        text: data.answer || "AI 未提供有效回答。", 
+        sender: 'ai',
+        chartData: data.chartData || null // 將圖表數據附加到 AI 訊息上
+      };
+      setChatMessages(prev => [...prev, aiMessage]);
+
+      if (data.chartData) {
+        logger.info("收到圖表數據:", data.chartData);
+        setCurrentChartData(data.chartData); // 設定圖表數據以供渲染
+      }
+
+    } catch (error) {
+      logger.error("Chat API 錯誤:", error); setChatError(`與 AI 溝通錯誤: ${error.message}`);
+      setChatMessages(prev => [...prev, { id: Date.now() + 1, text: `🤖 AI 回應錯誤: ${error.message}`, sender: 'system-error' }]);
+    } finally { setIsChatProcessing(false); }
+  };
+// 輔助函數：類似 Python os.path.basename，並可選擇移除副檔名
+  const osPathBaseName = (path, removeExtension = false) => {
+    let base = path.substring(path.lastIndexOf('/') + 1);
+    if (removeExtension) {
+      base = base.substring(0, base.lastIndexOf('.'));
+    }
+    return base;
+  };  
+  const PIE_CHART_COLORS = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
 
   return ( /* ... (JSX 結構與之前版本基本相同) ... */ 
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white p-4 sm:p-6 flex flex-col items-center font-sans">
@@ -465,6 +517,36 @@ const NessusAIPage = () => {
           </div>
           {chatError && (<p className="text-red-400 mt-2 text-sm flex items-center"><AlertCircle className="w-4 h-4 mr-1" /> {chatError}</p>)}
         </section>
+		{/* 圖表顯示區 - 新增 */}
+        {reportReady && currentChartData && currentChartData.type === 'risk_distribution' && (
+          <section id="chart-display-section" className="my-8 p-6 bg-slate-700/50 rounded-lg">
+            <h3 className="text-xl font-semibold text-purple-300 mb-4 flex items-center">
+              <BarChart2 className="w-5 h-5 mr-2"/> {currentChartData.title || "風險分佈圖"}
+            </h3>
+            <div style={{ width: '100%', height: 300 }}> {/* Recharts 需要明確的寬高 */}
+              <ResponsiveContainer>
+                <BarChart data={currentChartData.data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#555" />
+                  <XAxis dataKey="name" stroke="#ccc" />
+                  <YAxis stroke="#ccc" allowDecimals={false} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#333', border: '1px solid #555', borderRadius: '0.5rem' }} 
+                    itemStyle={{ color: '#eee' }}
+                    cursor={{fill: 'rgba(128, 128, 128, 0.2)'}}
+                  />
+                  <Legend wrapperStyle={{ color: '#ccc' }} />
+                  <Bar dataKey="數量" fill="#8884d8" radius={[4, 4, 0, 0]} />
+                  {/* 您可以為不同的 Bar 指定不同的顏色，如果數據中有顏色資訊 */}
+                  {/* <Bar dataKey="數量">
+                    {currentChartData.data.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
+                    ))}
+                  </Bar> */}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        )}
       </main>
       <footer className="w-full max-w-4xl mt-10 sm:mt-16 text-center text-gray-500 text-xs sm:text-sm">
         <p>&copy; {new Date().getFullYear()} Nessus AI 分析助手. Powered by AWS Bedrock.</p>
