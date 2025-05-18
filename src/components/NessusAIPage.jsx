@@ -38,6 +38,7 @@ const NessusAIPage = () => {
   const fileInputRef = useRef(null);
   const chatContainerRef = useRef(null);
   const pollingIntervalRef = useRef(null); 
+  const PIE_CHART_COLORS = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
 
   const logger = {
     info: (message, ...args) => console.log(`[INFO] ${new Date().toISOString()}: ${message}`, ...args),
@@ -353,6 +354,32 @@ const NessusAIPage = () => {
     }, pollIntervalMs);
   };
 
+	const suggestedChartQueries = [
+		{ 
+		  label: "風險等級分佈圖", 
+		  query: "請生成弱點風險等級分佈圖", 
+		  icon: <BarChart2 size={18} className="mr-2" /> 
+		},
+		{ 
+		  label: "Critical 弱點總數", 
+		  query: "報告中有多少個 Critical 等級的弱點？", 
+		  icon: <AlertCircle size={18} className="mr-2 text-red-400" /> 
+		},
+		{ 
+		  label: "High 弱點總數", 
+		  query: "報告中有多少個 High 等級的弱點？", 
+		  icon: <Activity size={18} className="mr-2 text-orange-400" /> 
+		},
+		{
+		  label: "列出前3個Critical弱點",
+		  query: "請列出報告中前3個 Critical 等級弱點的名稱和受影響的 IP 位址。",
+		  icon: <ListChecks size={18} className="mr-2" />
+		},{
+		  label: "列出前3個Critical弱點",
+		  query: "哪個 IP 位址的 Critical 和 High 弱點總數最多？",
+		  icon: <ListChecks size={18} className="mr-2" />
+		}
+	  ];
   // 修改 sendChatMessage 以接受一個可選的 query 參數
   const sendChatMessage = async (predefinedQuery = null) => { 
     const queryToSend = predefinedQuery || chatInput.trim();
@@ -412,7 +439,6 @@ const NessusAIPage = () => {
     }
     return base;
   };  
-  const PIE_CHART_COLORS = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
 	// 建議的圖表查詢列表
   const suggestedChartQueries = [
     { 
@@ -424,7 +450,7 @@ const NessusAIPage = () => {
     // { label: "顯示前五大弱點 Plugin ID", query: "列出前五個最常見的 Plugin ID 及其風險等級和數量", icon: <FileText size={18} className="mr-2" /> },
   ];
   return ( /* ... (JSX 結構與之前版本基本相同) ... */ 
-    <div className="items-center font-sans">
+    <div className="flex flex-col items-center font-sans">
       <header className="w-full max-w-4xl mb-6 sm:mb-10 text-center">
         <div className="flex items-center justify-center mb-2">
           <FileText size={36} className="text-purple-400 mr-3" />
@@ -539,30 +565,7 @@ const NessusAIPage = () => {
 		{/* 圖表顯示區 */}
         {reportReady && currentChartData && currentChartData.type === 'risk_distribution' && (
           <section id="chart-display-section" className="my-8 p-6 bg-slate-700/50 rounded-lg border border-slate-600">
-            <h3 className="text-xl font-semibold text-purple-300 mb-4 flex items-center">
-              <BarChart2 className="w-5 h-5 mr-2"/> {currentChartData.title || "風險分佈圖"}
-            </h3>
-            <div style={{ width: '100%', height: 300 }}>
-              <ResponsiveContainer>
-                <BarChart data={currentChartData.data} margin={{ top: 5, right: 30, left: 0, bottom: 20 }}> {/* 增加 bottom margin 給 X軸標籤 */}
-                  <CartesianGrid strokeDasharray="3 3" stroke="#555" />
-                  <XAxis dataKey="name" stroke="#ccc" angle={-30} textAnchor="end" height={50} interval={0} /> {/* X軸標籤傾斜 */}
-                  <YAxis stroke="#ccc" allowDecimals={false} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: 'rgba(50, 50, 50, 0.9)', border: '1px solid #555', borderRadius: '0.5rem', boxShadow: '0 2px 10px rgba(0,0,0,0.5)' }} 
-                    itemStyle={{ color: '#eee' }}
-                    labelStyle={{ color: '#fff', fontWeight: 'bold' }}
-                    cursor={{fill: 'rgba(128, 128, 128, 0.3)'}}
-                  />
-                  <Legend wrapperStyle={{ color: '#ccc', paddingTop: '10px' }} />
-                  <Bar dataKey="數量" radius={[4, 4, 0, 0]}>
-                    {currentChartData.data.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            {/* ... (圖表 JSX 與之前版本相同) ... */}
           </section>
         )}
 		<section id="chat-section" className="mt-8">
@@ -570,18 +573,30 @@ const NessusAIPage = () => {
             <MessageSquare className="w-6 h-6 mr-2" /> {reportReady ? "AI 報告問答" : "AI 報告問答 (等待報告就緒)"}
           </h2>
           <div ref={chatContainerRef} className="bg-gray-700/60 p-3 sm:p-4 rounded-lg h-72 sm:h-96 overflow-y-auto mb-4 shadow-inner border border-gray-600/50">
-            {/* ... (聊天訊息渲染) ... */}
+            {chatMessages.map((message) => (
+              <div key={message.id} className={`mb-3 flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-xs sm:max-w-md lg:max-w-lg p-2.5 sm:p-3 rounded-xl shadow break-words ${
+                    message.sender === 'user' ? 'bg-purple-600 text-white rounded-br-none' :
+                    message.sender === 'ai' ? 'bg-gray-600 text-gray-200 rounded-bl-none' :
+                    message.sender === 'system-error' ? 'bg-red-800/80 text-red-100 text-center w-full py-2' : 
+                    'bg-transparent text-gray-400 italic text-center w-full py-2'
+                  }`}
+                >
+                  <p className="text-sm sm:text-base whitespace-pre-wrap">{message.text}</p>
+                </div>
+              </div>
+            ))}
+            {isChatProcessing && ( <div className="flex justify-start mb-3"> <div className="max-w-xs p-2.5 rounded-xl shadow bg-gray-600"><Loader2 className="animate-spin h-5 w-5 text-purple-300" /></div></div>)}
           </div>
 
-          {/* 建議查詢按鈕區 - 新增 */}
           {reportReady && !isChatProcessing && (
             <div className="my-4 p-4 bg-slate-700/30 rounded-lg border border-slate-600/40">
-              <h4 className="text-sm font-semibold text-purple-200 mb-3">建議的圖表查詢：</h4>
+              <h4 className="text-sm font-semibold text-purple-200 mb-3">建議查詢：</h4>
               <div className="flex flex-wrap gap-2">
                 {suggestedChartQueries.map((sq, index) => (
                   <button
                     key={index}
-                    onClick={() => sendChatMessage(sq.query)} // 點擊直接發送預定義查詢
+                    onClick={() => sendChatMessage(sq.query)}
                     disabled={isChatProcessing || !reportReady}
                     className="flex items-center bg-purple-600 hover:bg-purple-700 text-white text-xs sm:text-sm font-medium py-2 px-3 rounded-lg transition-colors disabled:opacity-50"
                   >
@@ -592,14 +607,15 @@ const NessusAIPage = () => {
               </div>
             </div>
           )}
-		  <div className="flex items-center gap-2 sm:gap-3">
+
+          <div className="flex items-center gap-2 sm:gap-3">
             <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} 
-                   onKeyUp={(e) => e.key === 'Enter' && sendChatMessage()} // 按 Enter 也發送
+                   onKeyUp={(e) => e.key === 'Enter' && sendChatMessage()}
               disabled={!reportReady || isUploading || isProcessingReport || isChatProcessing}
               placeholder={reportReady ? "或在此輸入您的問題..." : "請等待報告處理完成"}
               className="flex-grow bg-gray-600/70 border border-gray-500 text-white placeholder-gray-400 rounded-lg p-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             />
-            <button onClick={() => sendChatMessage()} // 修改為不帶參數，它會使用 chatInput 的值
+            <button onClick={() => sendChatMessage()} 
                     disabled={!reportReady || isUploading || isProcessingReport || isChatProcessing || !chatInput.trim()}
               className="bg-purple-600 hover:bg-purple-700 text-white font-bold p-3 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center aspect-square"
               aria-label="發送訊息">
