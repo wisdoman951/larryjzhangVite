@@ -424,7 +424,6 @@ const NessusAIPage = () => {
     // { label: "顯示前五大弱點 Plugin ID", query: "列出前五個最常見的 Plugin ID 及其風險等級和數量", icon: <FileText size={18} className="mr-2" /> },
   ];
   return ( /* ... (JSX 結構與之前版本基本相同) ... */ 
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white p-4 sm:p-6 flex flex-col items-center font-sans">
       <header className="w-full max-w-4xl mb-6 sm:mb-10 text-center">
         <div className="flex items-center justify-center mb-2">
           <FileText size={36} className="text-purple-400 mr-3" />
