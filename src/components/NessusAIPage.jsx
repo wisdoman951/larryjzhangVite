@@ -167,12 +167,32 @@ const NessusAIPage = () => {
     setFilesUploadedCount(0);
     if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
     setChatMessages([{id: Date.now(), text: '準備開始新任務...', sender: 'system'}]);
-
+	
+	// 1. 清除任何正在運行的舊輪詢 (如果有的話)
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null; // 重置 ref
+    }
+    // 2. 為新任務生成 ID 並立即設定為當前任務 ID
     const newJobId = uuidv4();
-    setCurrentJobId(newJobId);
-    logger.info(`新任務開始，Job ID: ${newJobId}，準備上傳檔案: ${fileToUpload.name}`);
+    setCurrentJobId(newJobId); // <--- 關鍵：先設定新的 jobId
+    logger.info(`新任務開始，Job ID: ${newJobId}`);
 
-    setIsUploading(true);
+    // 3. 重置與報告相關的狀態 (除了 currentJobId)
+    setUploadError(''); 
+    setUploadProgress(0);
+    setFilesUploadedCount(0);
+    setReportReady(false); 
+    setReportDownloadUrl(''); 
+    setReportS3KeyForChat('');
+    setReportS3BucketForChat(''); 
+    setReportFileNameForDisplay('');
+    setIsProcessingReport(true); // 新任務開始，設定為處理中
+    setProcessingStatusMessage('🚀 準備上傳檔案...');
+    // 清理聊天訊息，或只保留初始系統訊息 + 新任務開始訊息
+    setChatMessages([{id: Date.now(), text: `🚀 任務 ${newJobId} 開始，準備上傳檔案...`, sender: 'system'}]);
+    
+    setIsUploading(true); // 表示正在獲取 Presigned URL 和上傳 S3
     setProcessingStatusMessage(`🚀 準備上傳檔案: ${fileToUpload.name}...`);
     setChatMessages(prev => [...prev.filter(m => m.sender === 'system'), {id: Date.now(), text: `🚀 任務 ${newJobId} 開始，準備上傳檔案: ${fileToUpload.name}...`, sender: 'system'}]);
     
