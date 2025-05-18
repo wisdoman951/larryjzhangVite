@@ -612,7 +612,6 @@ const NessusAIPage = () => {
         <p>&copy; {new Date().getFullYear()} Nessus AI 分析助手. Powered by AWS Bedrock.</p>
         <p>請注意：AI 回答僅供參考，實際決策請依據完整報告和專業判斷。</p>
       </footer>
-    </div>
   );
 };
 export default NessusAIPage;
