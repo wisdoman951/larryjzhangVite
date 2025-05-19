@@ -42,7 +42,7 @@ const SurveyPage = () => {
         </p>
       </header>
 
-      <SurveySection title="A. 核心大型語言模型 (LLM) 資訊" icon={<BrainCircuit size={28} />}>
+      <SurveySection title="A. 核心大型語言模型 (LLM) 資訊">
         <SurveyItem 
           question="1. LLM 模型類型：" 
           options={[
