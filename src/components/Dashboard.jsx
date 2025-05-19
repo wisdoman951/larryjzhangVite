@@ -96,6 +96,13 @@ const Dashboard = () => {
       target: "/nessus-ai", // 指向 Nessus AI 頁面的路由
       icon: <BrainCircuit size={40} className="mb-3 text-purple-400" /> // 範例圖示
     },
+	{ 
+      title: "LLM 安全評估", 
+      desc: "開發服務線整理流程Demo", 
+      actionType: "link", 
+      target: "/llm-security/survey",
+      icon: <Briefcase size={40} className="mb-3 text-yellow-400" />
+    },
     { 
       title: "專案管理", 
       desc: "追蹤專案進度與任務狀態", 
