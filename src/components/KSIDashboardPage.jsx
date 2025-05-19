@@ -1,4 +1,4 @@
-...import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts';
 import { AlertTriangle, ShieldCheck, FileWarning, Percent, ListChecks, Zap, Target, Activity } from 'lucide-react';
 
