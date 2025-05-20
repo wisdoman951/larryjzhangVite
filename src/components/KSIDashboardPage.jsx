@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts';
-import { AlertTriangle, ShieldCheck, FileWarning, Percent, ListChecks, Zap, Target, Activity } from 'lucide-react';
+import { AlertTriangle, ShieldCheck, FileWarning, Percent, ListChecks, Zap, Target, Activity, Loader2 } from 'lucide-react';
 
 // 模擬從 JSON 檔案載入數據 (在實際應用中，這些數據可能來自 props 或 context)
 const loadSimulatedData = async (fileName) => {
