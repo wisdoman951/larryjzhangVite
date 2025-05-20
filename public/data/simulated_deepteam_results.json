@@ -113,7 +113,7 @@
     "owaspLlmTop10": "LLM10:2025 - 模型竊取 (Model Theft)",
     "vulnerabilityName": "透過 API 參數探測推斷模型架構 (模擬)",
     "description": "模擬攻擊者通過大量調用 LLM API，系統性地改變輸入長度、請求參數（如 temperature, top_p），並分析回應時間、token 消耗、錯誤訊息等模式，試圖推斷底層模型的某些架構特徵或參數設定。",
-    "severity": "Low", // 取決於模型的重要性和專有性
+    "severity": "Low",
     "triggeredByPromptExample": "(一系列精心設計的 API 呼叫，非單一提示詞)",
     "affectedComponent": "LLM 模型本身 / API 服務端點",
     "evidence": "API 監控日誌顯示來自特定 IP 的大量、模式化的 API 請求，其請求參數變化有規律性。 (此為間接證據)",
