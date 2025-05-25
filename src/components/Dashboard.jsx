@@ -83,13 +83,6 @@ const Dashboard = () => {
       icon: <FileText size={40} className="mb-3 text-sky-400" /> 
     },
     { 
-      title: "合規性評估", 
-      desc: "分析訪談紀錄並評估法規合規性", 
-      actionType: "link",
-      target: "/compliance",
-      icon: <ShieldCheck size={40} className="mb-3 text-green-400" />
-    },
-    { 
       title: "Nessus AI 分析", // 新增的卡片
       desc: "自動化 Nessus 報告處理與 AI 問答", 
       actionType: "link",
@@ -102,6 +95,13 @@ const Dashboard = () => {
       actionType: "link", 
       target: "/llm-security/survey",
       icon: <Briefcase size={40} className="mb-3 text-yellow-400" />
+    },
+    { 
+      title: "合規性評估", 
+      desc: "分析訪談紀錄並評估法規合規性", 
+      actionType: "alert",
+      target: "/compliance",
+      icon: <ShieldCheck size={40} className="mb-3 text-green-400" />
     },
     { 
       title: "專案管理", 
