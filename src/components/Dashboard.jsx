@@ -114,7 +114,7 @@ const Dashboard = () => {
 
   return (
     <>
-      <header className="bg-sky-700/70 text-white p-3 shadow-lg backdrop-blur-md sticky top-0 z-30 flex justify-center items-center"">
+      <header className="bg-sky-700/70 text-white p-3 shadow-lg backdrop-blur-md sticky top-0 z-30 flex justify-center items-center">
         <h1 className="text-3xl font-bold text-center">AI 平台 Dashboard</h1>
       </header>
       
