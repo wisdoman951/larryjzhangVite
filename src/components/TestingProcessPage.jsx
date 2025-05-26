@@ -157,7 +157,7 @@ const TestingProcessPage = () => {
         <p className="mt-2">例如，針對插件的使用，我們會特別關注「不安全的插件設計 (LLM07)」和「過度代理 (LLM08)」的風險。針對模型本身，則會測試「提示詞注入 (LLM01)」和「敏感資訊洩露 (LLM06)」等。</p>
       </SectionCard>
 
-      <SectionCard title="2. 提示詞工程：Data Evolution & Evol-Instruct (示意)" icon={<Edit3 size={24} />} cardBgColor={sectionCardBg} textColor={sectionTitleColor} initiallyOpen={true}>
+      <SectionCard title="2. Prompt Evolving工程：Data Evolution & Evol-Instruct (示意)" icon={<Edit3 size={24} />} cardBgColor={sectionCardBg} textColor={sectionTitleColor} initiallyOpen={true}>
         <p>為了全面測試 LLM 的安全性，我們需要大量且多樣化的測試提示詞。我們採用 Data Evolution 的概念，從一組核心的「種子提示詞」開始，利用 LLM 的能力來自動擴展和複雜化它們。</p>
         
         {/* Evol-Instruct 流程示意圖 */}
