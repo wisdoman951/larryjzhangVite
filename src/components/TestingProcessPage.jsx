@@ -182,7 +182,7 @@ const TestingProcessPage = () => {
         </p>
       </SectionCard>
 
-            <SectionCard title="3. 模擬自動化掃描與 AI 評估" icon={<Search size={24} />} initiallyOpen={true} cardBgColor={sectionCardBg} textColor={sectionTitleColor}>
+<SectionCard title="3. 模擬自動化掃描與 AI 評估" icon={<Search size={24} />} initiallyOpen={true} cardBgColor={sectionCardBg} textColor={sectionTitleColor}>
         <div className="space-y-6">
           <div>
             <button
