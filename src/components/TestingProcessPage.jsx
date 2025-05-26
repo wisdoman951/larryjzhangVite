@@ -182,7 +182,7 @@ const TestingProcessPage = () => {
         </p>
       </SectionCard>
 
-      <SectionCard title="3. 模擬自動化掃描與 AI 評估" icon={<Search size={24} />} cardBgColor={sectionCardBg} textColor={sectionTitleColor}>
+            <SectionCard title="3. 模擬自動化掃描與 AI 評估" icon={<Search size={24} />} initiallyOpen={true}>
         <div className="space-y-6">
           <div>
             <button
@@ -194,17 +194,17 @@ const TestingProcessPage = () => {
               {simulatingScan ? "正在模擬 DeepTeam 掃描..." : "開始模擬 DeepTeam 安全掃描"}
             </button>
             {scanResults && (
-              <div className="mt-4 p-4 bg-slate-800/50 rounded-md max-h-80 overflow-y-auto border border-slate-700">
+              <div className="mt-4 p-4 bg-slate-700/50 rounded-md max-h-80 overflow-y-auto">
                 <h4 className="text-lg font-semibold text-sky-300 mb-2">模擬掃描結果摘要：</h4>
                 {scanResults.error ? <p className="text-red-400">{scanResults.error}</p> : (
                   <ul className="text-sm space-y-2">
                     {scanResults.slice(0, 5).map(vuln => ( 
-                      <li key={vuln.vulnerabilityId} className="p-2 border-b border-slate-700 last:border-b-0">
-                        <strong>{vuln.vulnerabilityName}</strong> ({vuln.owaspLlmTop10.split(':')[0]}) - <span className={`font-bold ${vuln.severity === 'High' || vuln.severity === 'Critical' ? 'text-red-400' : vuln.severity === 'Medium' ? 'text-yellow-400' : 'text-green-400'}`}>{vuln.severity}</span>
+                      <li key={vuln.vulnerabilityId} className="p-2 border border-slate-600 rounded">
+                        <strong>{vuln.vulnerabilityName}</strong> ({vuln.owaspLlmTop10 && vuln.owaspLlmTop10.split(':')[0]}) - <span className={`font-bold ${vuln.severity === 'High' || vuln.severity === 'Critical' ? 'text-red-400' : vuln.severity === 'Medium' ? 'text-yellow-400' : 'text-green-400'}`}>{vuln.severity}</span>
                         <p className="text-xs text-gray-400 truncate">描述: {vuln.description}</p>
                       </li>
                     ))}
-                    {scanResults.length > 5 && <p className="text-xs text-gray-400 mt-2 text-center">...等共 {scanResults.length} 項發現 (詳見儀表板)。</p>}
+                    {scanResults.length > 5 && <p className="text-xs text-gray-400 mt-2">...等共 {scanResults.length} 項發現 (詳見儀表板)。</p>}
                   </ul>
                 )}
               </div>
@@ -216,26 +216,37 @@ const TestingProcessPage = () => {
               <button
                 onClick={handleSimulateJudge}
                 disabled={simulatingJudge || simulatingScan}
-                className="w-full flex items-center justify-center bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-md hover:shadow-teal-500/50 disabled:opacity-60 mt-4"
+                className="w-full flex items-center justify-center bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-md hover:shadow-teal-500/50 disabled:opacity-60"
               >
                 {simulatingJudge ? <Loader2 className="animate-spin mr-2" /> : <ListChecks className="mr-2" />}
                 {simulatingJudge ? "正在模擬 LLM-as-a-Judge 評估..." : "開始模擬 LLM 回應評估"}
               </button>
               {judgeResults && (
-                <div className="mt-4 p-4 bg-slate-800/50 rounded-md max-h-80 overflow-y-auto border border-slate-700">
+                <div className="mt-4 p-4 bg-slate-700/50 rounded-md max-h-80 overflow-y-auto">
                   <h4 className="text-lg font-semibold text-sky-300 mb-2">模擬 LLM 回應評估摘要：</h4>
                   {judgeResults.error ? <p className="text-red-400">{judgeResults.error}</p> : (
                     <ul className="text-sm space-y-2">
-                       {judgeResults.slice(0, 3).map(evalItem => ( 
-                        <li key={evalItem.evaluationId || evalItem.responseId} className="p-2 border-b border-slate-700 last:border-b-0">
-                          <p><strong>提示 (部分):</strong> <span className="text-gray-400 text-xs">"{evalItem.originalPrompt.substring(0,70)}..."</span></p>
-                          <p><strong>LLM回應 (部分):</strong> <span className="text-gray-400 text-xs">"{evalItem.llmResponseToEvaluate ? evalItem.llmResponseToEvaluate.substring(0, 70) : (evalItem.llmResponse ? evalItem.llmResponse.substring(0,70) : 'N/A')}..."</span></p>
-                          <p><strong>評估安全分數:</strong> <span className={`font-bold ${evalItem.evaluationResults.overallSafetyScore < 0.5 ? 'text-red-400' : evalItem.evaluationResults.overallSafetyScore < 0.8 ? 'text-yellow-400' : 'text-green-400'}`}>{evalItem.evaluationResults.overallSafetyScore}</span></p>
-                          {evalItem.evaluationResults.jailbreakAttemptDetected && <p className="text-xs text-red-300">檢測到越獄嘗試!</p>}
-                          {evalItem.evaluationResults.containsPII && <p className="text-xs text-red-300">可能包含 PII!</p>}
+                       {judgeResults.slice(0, 3).map(evalItem => (
+                        // *** 修正點：使用 evalItem.evaluationId 作為 key ***
+                        // *** 修正點：存取 evalItem.evaluationResults 而不是 evalItem.evaluation ***
+                        <li key={evalItem.evaluationId} className="p-2 border border-slate-600 rounded">
+                          <p><strong>提示:</strong> <span className="text-gray-400 text-xs truncate">"{evalItem.originalPrompt}"</span></p>
+                          <p><strong>LLM回應 (部分):</strong> <span className="text-gray-400 text-xs truncate">"{evalItem.llmResponseToEvaluate && evalItem.llmResponseToEvaluate.substring(0, 50)}..."</span></p>
+                          {evalItem.evaluationResults && ( // 增加檢查確保 evaluationResults 存在
+                            <>
+                              <p><strong>評估安全分數:</strong> 
+                                <span className={`font-bold ${evalItem.evaluationResults.overallSafetyScore < 0.5 ? 'text-red-400' : evalItem.evaluationResults.overallSafetyScore < 0.8 ? 'text-yellow-400' : 'text-green-400'}`}>
+                                  {evalItem.evaluationResults.overallSafetyScore !== undefined ? evalItem.evaluationResults.overallSafetyScore.toFixed(2) : 'N/A'}
+                                </span>
+                              </p>
+                              {evalItem.evaluationResults.jailbreakAttemptDetected && <p className="text-xs text-red-300">檢測到越獄嘗試!</p>}
+                              {evalItem.evaluationResults.containsPII && <p className="text-xs text-red-300">可能包含 PII!</p>}
+                              <p className="text-xs text-gray-400 mt-1"><i>評審意見: {evalItem.evaluationResults.judgeComment && evalItem.evaluationResults.judgeComment.substring(0,100)}...</i></p>
+                            </>
+                          )}
                         </li>
                        ))}
-                       {judgeResults.length > 3 && <p className="text-xs text-gray-400 mt-2 text-center">...等共 {judgeResults.length} 項評估 (詳見儀表板)。</p>}
+                       {judgeResults.length > 3 && <p className="text-xs text-gray-400 mt-2">...等共 {judgeResults.length} 項評估 (詳見儀表板)。</p>}
                     </ul>
                   )}
                 </div>
