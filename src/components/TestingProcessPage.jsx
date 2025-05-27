@@ -1,9 +1,8 @@
-// src/components/TestingProcessPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useHistory } from 'react-router-dom';
-import { Zap, Edit3, ShieldAlert, CheckSquare, Loader2, ChevronRight, ListChecks, Search, ArrowRightCircle, Filter, RefreshCcw, Wand2, Info, Settings2, Layers, Tag, MinusCircle, Briefcase, Trash2,PlusCircle,AlertCircle  } from 'lucide-react';
+import { Zap, Edit3, ShieldAlert, CheckSquare, Loader2, ChevronRight, ListChecks, Search, ArrowRightCircle, Filter, RefreshCcw, Wand2, Info, Settings2, Layers, Tag, MinusCircle, Briefcase, Trash2, PlusCircle, AlertCircle } from 'lucide-react';
 
-const GENERATE_EVOLVED_PROMPTS_API = 'https://dm2nkd04w0.execute-api.ap-northeast-1.amazonaws.com/prod/promptgenerator'; // 確保這個路徑與您 API Gateway 設定一致
+const GENERATE_EVOLVED_PROMPTS_API = 'https://dm2nkd04w0.execute-api.ap-northeast-1.amazonaws.com/prod/promptgenerator';
 
 const SectionCard = ({ title, icon, children, initiallyOpen = false, cardBgColor = "bg-slate-800/70", textColor = "text-purple-300" }) => {
   const [isOpen, setIsOpen] = useState(initiallyOpen);
@@ -37,19 +36,19 @@ const EvolInstructFlowDiagram = () => {
           <p className="font-semibold">1. 初始指令</p>
           <p className="text-xs">(Seed Prompts)</p>
         </div>
-        <div className={arrowStyle}>&rarr;</div>
+        <div className={arrowStyle}>→</div>
         <div className={`flex-1 ${flowStepStyle}`}>
           <Zap size={24} className="mx-auto mb-1 text-sky-300"/>
           <p className="font-semibold">2. 演化增強</p>
           <p className="text-xs">(In-depth & In-breadth)</p>
         </div>
-        <div className={arrowStyle}>&rarr;</div>
+        <div className={arrowStyle}>→</div>
         <div className={`flex-1 ${flowStepStyle}`}>
           <Filter size={24} className="mx-auto mb-1 text-sky-300"/>
           <p className="font-semibold">3. 過濾篩選</p>
           <p className="text-xs">(Elimination)</p>
         </div>
-        <div className={arrowStyle}>&rarr;</div>
+        <div className={arrowStyle}>→</div>
         <div className={`flex-1 ${flowStepStyle}`}>
           <RefreshCcw size={24} className="mx-auto mb-1 text-sky-300"/>
           <p className="font-semibold">4. 迭代循環</p>
@@ -71,7 +70,7 @@ const owaspCategories = [
   { id: "LLM09", name: "LLM09 錯誤資訊/幻覺" }, { id: "LLM10", name: "LLM10 模型竊取" }
 ];
 const thematicCategoriesFromExcel = [
-  "娛樂", "政治", "違反善良風俗", "健康", "運動", "教育", 
+  "娛樂", "政治", "違反善良風俗", "健康", "運動", "教育",
   "旅遊", "財經", "環保", "文化", "同業", "價值觀"
 ];
 const industryOptions = [
@@ -101,7 +100,7 @@ const CategorySelectionItem = ({ category, isSelected, onSelect, count, onCountC
         {isSelected && (
             <div className="flex items-center shrink-0">
                 <button onClick={() => onCountChange(category.id || category, Math.max(1, count - 1))} className="p-0.5 text-slate-400 hover:text-white"><MinusCircle size={16}/></button>
-                <input 
+                <input
                     type="number" value={count}
                     onChange={(e) => {
                         let val = parseInt(e.target.value, 10);
@@ -130,18 +129,18 @@ const TestingProcessPage = () => {
   const [isGeneratingPrompts, setIsGeneratingPrompts] = useState(false);
   const [promptGenerationError, setPromptGenerationError] = useState('');
 
-  const [generationMode, setGenerationMode] = useState('owasp'); 
-  const [selectedOwasp, setSelectedOwasp] = useState({}); 
+  const [generationMode, setGenerationMode] = useState('owasp');
+  const [selectedOwasp, setSelectedOwasp] = useState({});
   const [selectedThematic, setSelectedThematic] = useState({});
-  
-  const MAX_PROMPTS_PER_CATEGORY = 10; // 每個子類別最多生成10個
-  const OVERALL_MAX_PROMPTS_TARGET = 15; // 總體目標生成15個，Lambda端會盡力達成
 
-  const logger = { 
+  const MAX_PROMPTS_PER_CATEGORY = 10;
+  const OVERALL_MAX_PROMPTS_TARGET = 15;
+
+  const logger = {
     info: (message, ...args) => console.log(`[INFO] ${new Date().toISOString()}: ${message}`, ...args),
     error: (message, ...args) => console.error(`[ERROR] ${new Date().toISOString()}: ${message}`, ...args),
   };
-  
+
   const handleCategorySelection = (categoryIdentifier, type) => {
     const setter = type === 'owasp' ? setSelectedOwasp : setSelectedThematic;
     setter(prev => {
@@ -149,7 +148,7 @@ const TestingProcessPage = () => {
       if (newSelection[categoryIdentifier]) {
         delete newSelection[categoryIdentifier];
       } else {
-        newSelection[categoryIdentifier] = 1; // Default count 1 when selected
+        newSelection[categoryIdentifier] = 1;
       }
       return newSelection;
     });
@@ -169,47 +168,61 @@ const TestingProcessPage = () => {
     const setter = type === 'owasp' ? setSelectedOwasp : setSelectedThematic;
     if (Object.keys(currentSelectedMap).length === categories.length) {
       setter({});
-    } else { 
+    } else {
       const newSelection = {};
       categories.forEach(catIdOrName => {
         const key = typeof catIdOrName === 'object' ? catIdOrName.id : catIdOrName;
-        newSelection[key] = currentSelectedMap[key] || 1; 
+        newSelection[key] = currentSelectedMap[key] || 1;
       });
       setter(newSelection);
     }
   };
 
   const handleGenerateEvolvedPrompts = async () => {
-    const baseSeedPrompt = generateBaseSeedPromptForIndustry(selectedIndustry);
     let generationConfigPayload = [];
     if (generationMode === 'owasp') {
       generationConfigPayload = Object.entries(selectedOwasp).map(([category, count]) => ({ mode: 'owasp', category, count: parseInt(count, 10) || 1 }));
     } else if (generationMode === 'thematic') {
       generationConfigPayload = Object.entries(selectedThematic).map(([category, count]) => ({ mode: 'thematic', category, count: parseInt(count, 10) || 1 }));
     }
-    if (generationConfigPayload.length === 0) { setPromptGenerationError(`請至少選擇一個類別！`); return; }
+    if (generationConfigPayload.length === 0) {
+      setPromptGenerationError(`請至少選擇一個類別！`);
+      return;
+    }
     let totalRequestedByConfig = generationConfigPayload.reduce((sum, item) => sum + item.count, 0);
-    if (totalRequestedByConfig === 0) { setPromptGenerationError(`請為選中的類別指定至少生成一個提示詞。`); return; }
-    
-    setIsGeneratingPrompts(true); setGeneratedEvolvedPrompts([]); setPromptGenerationError('');
+    if (totalRequestedByConfig === 0) {
+      setPromptGenerationError(`請為選中的類別指定至少生成一個提示詞。`);
+      return;
+    }
+
+    setIsGeneratingPrompts(true);
+    setGeneratedEvolvedPrompts([]);
+    setPromptGenerationError('');
     try {
-      logger.info(`向 API (${GENERATE_EVOLVED_PROMPTS_API}) 發送請求: seed=${baseSeedPrompt}, config=${JSON.stringify(generationConfigPayload)}`);
+      const payload = {
+        generation_config: generationConfigPayload,
+        total_count: Math.min(totalRequestedByConfig, OVERALL_MAX_PROMPTS_TARGET)
+      };
+      // 僅在 OWASP 模式下傳送 seed_prompt
+      if (generationMode === 'owasp') {
+        payload.seed_prompt = generateBaseSeedPromptForIndustry(selectedIndustry);
+      }
+      logger.info(`向 API (${GENERATE_EVOLVED_PROMPTS_API}) 發送請求: payload=${JSON.stringify(payload)}`);
       const response = await fetch(GENERATE_EVOLVED_PROMPTS_API, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          seed_prompt: baseSeedPrompt,
-          generation_config: generationConfigPayload,
-          total_count: Math.min(totalRequestedByConfig, OVERALL_MAX_PROMPTS_TARGET) 
-        }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
-      
+
       const responseText = await response.text();
       logger.info("Raw API response for evolved prompts:", responseText);
 
       if (!response.ok) {
         let errorMsg = `API 請求失敗 (狀態碼: ${response.status})`;
-        try { const errorData = JSON.parse(responseText); errorMsg = errorData.error || errorData.message || JSON.stringify(errorData); } 
-        catch (e) { /* ignore */ }
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMsg = errorData.error || errorData.message || JSON.stringify(errorData);
+        } catch (e) { /* ignore */ }
         throw new Error(errorMsg);
       }
 
@@ -229,9 +242,9 @@ const TestingProcessPage = () => {
 
   const handleSimulateScan = async () => {
     setSimulatingScan(true);
-    setScanResults(null); 
-    setJudgeResults(null); 
-    await new Promise(resolve => setTimeout(resolve, 1500)); 
+    setScanResults(null);
+    setJudgeResults(null);
+    await new Promise(resolve => setTimeout(resolve, 1500));
     try {
       const response = await fetch('/data/simulated_deepteam_results.json');
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -245,15 +258,15 @@ const TestingProcessPage = () => {
   };
 
   const handleSimulateJudge = async () => {
-    if (!scanResults || scanResults.error) { 
+    if (!scanResults || scanResults.error) {
         alert("請先成功執行模擬掃描。");
         return;
     }
     setSimulatingJudge(true);
     setJudgeResults(null);
-    await new Promise(resolve => setTimeout(resolve, 1500)); 
+    await new Promise(resolve => setTimeout(resolve, 1500));
     try {
-      const response = await fetch('/data/simulated_llm_judge_results.json'); 
+      const response = await fetch('/data/simulated_llm_judge_results.json');
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       setJudgeResults(data);
@@ -263,7 +276,7 @@ const TestingProcessPage = () => {
     }
     setSimulatingJudge(false);
   };
-  
+
   const handleGoToDashboard = () => {
     if (scanResults && !scanResults.error && judgeResults && !judgeResults.error) {
         history.push("/llm-security/dashboard");
@@ -272,8 +285,8 @@ const TestingProcessPage = () => {
     }
   };
 
-  const sectionCardBg = "bg-slate-800/60"; 
-  const sectionTitleColor = "text-sky-300"; 
+  const sectionCardBg = "bg-slate-800/60";
+  const sectionTitleColor = "text-sky-300";
 
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-5xl mx-auto text-white">
@@ -287,30 +300,40 @@ const TestingProcessPage = () => {
       <SectionCard title="提示詞生成邏輯說明" icon={<Info size={24} />} initiallyOpen={false} cardBgColor="bg-sky-800/50" textColor="text-sky-200">
         <p className="text-sm">本工具利用 AI (AWS Bedrock) 實現提示詞演化，模擬更複雜的攻擊場景。</p>
         <ul className="list-disc list-inside pl-4 mt-2 text-xs space-y-1">
-          <li>首先，請選擇您要評估的「金融行業別」，系統將根據您的選擇生成一個基礎的種子提示詞。</li>
+          <li>首先，請選擇您要評估的「金融行業別」，僅在選擇 OWASP 模式時，系統將根據您的選擇生成一個基礎的種子提示詞。</li>
           <li>然後，選擇「生成模式」：OWASP Top 10 風險或主題類別。</li>
           <li>勾選您想針對其生成提示詞的具體「類別」。</li>
           <li>為每個選中的類別指定希望生成的提示詞數量 (上限 {MAX_PROMPTS_PER_CATEGORY} 個)。</li>
-          <li>系統將基於您的選擇和基礎種子提示詞，調用 AI 生成多樣化的演化提示詞 (目標總數約 {OVERALL_MAX_PROMPTS_TARGET} 個)。</li>
+          <li>系統將基於您的選擇（在 OWASP 模式下使用種子提示詞，在主題模式下使用預定義主題關鍵字）生成多樣化的演化提示詞 (目標總數約 {OVERALL_MAX_PROMPTS_TARGET} 個)。</li>
         </ul>
-         <p className="text-xs mt-2">* 此為 DEMO 功能，演化策略和生成數量有限。真實評估將採用更全面的方法。</p>
+        <p className="text-xs mt-2">* 此為 DEMO 功能，演化策略和生成數量有限。真實評估將採用更全面的方法。</p>
       </SectionCard>
 
       <SectionCard title="1. 互動式提示詞演化器 (AI 驅動)" icon={<Wand2 size={24} />} initiallyOpen={true} cardBgColor={sectionCardBg} textColor={sectionTitleColor}>
         <div className="p-2 md:p-4 bg-slate-700/40 rounded-lg border border-slate-600">
           <div className="mb-4">
-            <label htmlFor="industrySelect" className="block text-md font-semibold text-purple-200 mb-2">步驟 1: 選擇目標金融行業別</label>
-            <select 
-              id="industrySelect" value={selectedIndustry} onChange={(e) => setSelectedIndustry(e.target.value)}
-              className="w-full p-3 border border-slate-500 rounded-lg bg-slate-800 text-white focus:ring-2 focus:ring-purple-500 outline-none shadow-sm"
+            <label htmlFor="industrySelect" className="block text-md font-semibold text-purple-200 mb-2">步驟 1: 選擇目標金融行業別（僅限 OWASP 模式）</label>
+            <select
+              id="industrySelect"
+              value={selectedIndustry}
+              onChange={(e) => setSelectedIndustry(e.target.value)}
+              disabled={generationMode === 'thematic'}
+              className="w-full p-3 border border-slate-500 rounded-lg bg-slate-800 text-white focus:ring-2 focus:ring-purple-500 outline-none shadow-sm disabled:opacity-50"
             >
               {industryOptions.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
             </select>
-            <p className="text-xs text-slate-400 mt-1 italic">
-              基礎種子提示詞將根據此選擇自動生成： "{generateBaseSeedPromptForIndustry(selectedIndustry)}"
-            </p>
+            {generationMode === 'owasp' && (
+              <p className="text-xs text-slate-400 mt-1 italic">
+                基礎種子提示詞將根據此選擇自動生成： "{generateBaseSeedPromptForIndustry(selectedIndustry)}"
+              </p>
+            )}
+            {generationMode === 'thematic' && (
+              <p className="text-xs text-slate-400 mt-1 italic">
+                主題模式將直接使用預定義的主題關鍵字生成提示詞，無需種子提示詞。
+              </p>
+            )}
           </div>
-          
+
           <div className="mb-4">
             <label className="block text-md font-semibold text-purple-200 mb-2">步驟 2: 選擇生成模式</label>
             <div className="flex gap-4 mb-3">
@@ -329,8 +352,10 @@ const TestingProcessPage = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-72 overflow-y-auto p-1">
                 {owaspCategories.map(cat => (
-                  <CategorySelectionItem 
-                    key={cat.id} category={cat} isSelected={!!selectedOwasp[cat.id]} 
+                  <CategorySelectionItem
+                    key={cat.id}
+                    category={cat}
+                    isSelected={!!selectedOwasp[cat.id]}
                     onSelect={() => handleCategorySelection(cat.id, 'owasp')}
                     count={selectedOwasp[cat.id] || 1}
                     onCountChange={(id, count) => handleCountChange(id, count, 'owasp')}
@@ -343,7 +368,7 @@ const TestingProcessPage = () => {
 
           {generationMode === 'thematic' && (
             <div className="mb-4 p-3 bg-slate-900/20 rounded-md">
-               <div className="flex justify-between items-center mb-2">
+              <div className="flex justify-between items-center mb-2">
                 <label className="block text-sm font-semibold text-purple-200">步驟 3b: 選擇主題類別</label>
                 <button onClick={() => handleSelectAll('thematic')} className="text-xs py-1 px-2 bg-sky-600 hover:bg-sky-700 rounded">
                   {Object.keys(selectedThematic).length === thematicCategoriesFromExcel.length ? "取消全選" : "全選主題"}
@@ -351,8 +376,10 @@ const TestingProcessPage = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-72 overflow-y-auto p-1">
                 {thematicCategoriesFromExcel.map(catName => (
-                   <CategorySelectionItem 
-                    key={catName} category={catName} isSelected={!!selectedThematic[catName]} 
+                  <CategorySelectionItem
+                    key={catName}
+                    category={catName}
+                    isSelected={!!selectedThematic[catName]}
                     onSelect={() => handleCategorySelection(catName, 'thematic')}
                     count={selectedThematic[catName] || 1}
                     onCountChange={(name, count) => handleCountChange(name, count, 'thematic')}
@@ -362,7 +389,7 @@ const TestingProcessPage = () => {
               </div>
             </div>
           )}
-          
+
           <button
             onClick={handleGenerateEvolvedPrompts}
             disabled={isGeneratingPrompts || (generationMode === 'owasp' && Object.keys(selectedOwasp).length === 0) || (generationMode === 'thematic' && Object.keys(selectedThematic).length === 0)}
@@ -372,11 +399,11 @@ const TestingProcessPage = () => {
             {isGeneratingPrompts ? "AI 努力生成中..." : "AI 生成演化提示詞"}
           </button>
 
-          {promptGenerationError && ( <p className="text-red-400 text-sm mt-3 flex items-center"><AlertCircle size={16} className="mr-1" />{promptGenerationError}</p> )}
+          {promptGenerationError && (<p className="text-red-400 text-sm mt-3 flex items-center"><AlertCircle size={16} className="mr-1" />{promptGenerationError}</p>)}
           {generatedEvolvedPrompts.length > 0 && (
             <div className="mt-6">
               <h5 className="text-md font-semibold text-purple-300 mb-2">AI 生成的演化提示詞 ({generatedEvolvedPrompts.length} 個)：</h5>
-              <ul className="list-decimal list-inside pl-4 space-y-3 text-sm bg-slate-800/60 p-4 rounded-md shadow max-h-[500px] overflow-y-auto"> {/* 增加高度 */}
+              <ul className="list-decimal list-inside pl-4 space-y-3 text-sm bg-slate-800/60 p-4 rounded-md shadow max-h-[500px] overflow-y-auto">
                 {generatedEvolvedPrompts.map((item, i) => (
                   <li key={`gen-${i}`} className="p-2 rounded hover:bg-slate-700/50 border-b border-slate-700 last:border-b-0">
                     <p className="break-all">{item.prompt}</p>
@@ -390,13 +417,11 @@ const TestingProcessPage = () => {
           )}
         </div>
       </SectionCard>
-      
-      {/* Evol-Instruct 流程示意圖，移到互動生成器下方作為概念補充 */}
+
       <SectionCard title="Prompt Engineering：Data Evolution & Evol-Instruct (概念示意)" icon={<Edit3 size={24} />} cardBgColor={sectionCardBg} textColor={sectionTitleColor} initiallyOpen={false}>
         <p>以上互動式生成器模擬了從基礎提示詞出發，結合不同策略生成多樣化測試案例的過程。在更完整的評估中，我們會採用如下圖所示的 Evol-Instruct 系統化流程，以確保測試的深度和廣度：</p>
         <EvolInstructFlowDiagram />
       </SectionCard>
-
 
       <SectionCard title="3. 模擬自動化掃描與 AI 評估 (基於測試提示詞)" icon={<Search size={24} />} initiallyOpen={false} cardBgColor={sectionCardBg} textColor={sectionTitleColor}>
         <p className="text-xs text-gray-400 mb-4">注意：以下「模擬掃描」和「模擬評估」按鈕目前使用的是預設的靜態JSON數據，並未動態使用上面AI生成的提示詞。若要實現動態使用，需進一步開發將生成的提示詞傳遞給後端掃描/評估服務的邏輯。</p>
@@ -437,11 +462,11 @@ const TestingProcessPage = () => {
                   <h4 className="text-lg font-semibold text-sky-300 mb-2">模擬 LLM 回應評估摘要：</h4>
                   {judgeResults.error ? <p className="text-red-400">{judgeResults.error}</p> : (
                     <ul className="text-sm space-y-2">
-                       {judgeResults.map(evalItem => ( 
+                      {judgeResults.map(evalItem => (
                         <li key={evalItem.evaluationId || evalItem.responseId} className="p-2 border border-slate-600 rounded">
                           <p><strong>提示:</strong> <span className="text-gray-400 text-xs">"{evalItem.originalPrompt}"</span></p>
                           <p><strong>LLM回應:</strong> <span className="text-gray-400 text-xs whitespace-pre-wrap ml-1">"{evalItem.llmResponseToEvaluate || evalItem.llmResponse}"</span></p>
-                          {(evalItem.evaluationResults || evalItem.evaluation) && ( 
+                          {(evalItem.evaluationResults || evalItem.evaluation) && (
                             <>
                               <p><strong>評估安全分數:</strong> <span className={`font-bold ml-1 ${((evalItem.evaluationResults || evalItem.evaluation).overallSafetyScore < 0.5 ? 'text-red-400' : (evalItem.evaluationResults || evalItem.evaluation).overallSafetyScore < 0.8 ? 'text-yellow-400' : 'text-green-400')}`}>
                                   {((evalItem.evaluationResults || evalItem.evaluation).overallSafetyScore !== undefined ? (evalItem.evaluationResults || evalItem.evaluation).overallSafetyScore.toFixed(2) : 'N/A')}
@@ -453,7 +478,7 @@ const TestingProcessPage = () => {
                             </>
                           )}
                         </li>
-                       ))}
+                      ))}
                     </ul>
                   )}
                 </div>
@@ -476,4 +501,3 @@ const TestingProcessPage = () => {
 };
 
 export default TestingProcessPage;
-
