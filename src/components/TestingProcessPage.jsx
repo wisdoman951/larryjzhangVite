@@ -64,11 +64,11 @@ const EvolInstructFlowDiagram = () => {
 };
 
 const owaspCategories = [
-  { id: "LLM01", name: "提示詞注入" }, { id: "LLM02", name: "不安全輸出" },
-  { id: "LLM03", name: "訓練數據污染" }, { id: "LLM04", name: "模型阻斷服務" },
-  { id: "LLM05", name: "供應鏈漏洞" }, { id: "LLM06", name: "敏感資訊洩露" },
-  { id: "LLM07", name: "不安全插件" }, { id: "LLM08", name: "過度代理" },
-  { id: "LLM09", name: "錯誤資訊/幻覺" }, { id: "LLM10", name: "模型竊取" }
+  { id: "LLM01", name: "LLM01 提示詞注入" }, { id: "LLM02", name: "LLM02 不安全輸出" },
+  { id: "LLM03", name: "LLM03 訓練數據污染" }, { id: "LLM04", name: "LLM04 模型阻斷服務" },
+  { id: "LLM05", name: "LLM05 供應鏈漏洞" }, { id: "LLM06", name: "LLM06 敏感資訊洩露" },
+  { id: "LLM07", name: "LLM07 不安全插件" }, { id: "LLM08", name: "LLM08 過度代理" },
+  { id: "LLM09", name: "LLM09 錯誤資訊/幻覺" }, { id: "LLM10", name: "LLM10 模型竊取" }
 ];
 const thematicCategoriesFromExcel = [
   "娛樂", "政治", "違反善良風俗", "健康", "運動", "教育", 
