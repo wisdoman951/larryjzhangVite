@@ -77,25 +77,6 @@ const CategorySelectionItem = ({ category, isSelected, onSelect, count, onCountC
 const handleSeedPromptClick = (prompt) => {
     setSeedInput(prompt); 
   };
-const SectionCard = ({ title, icon, children, initiallyOpen = false, cardBgColor = "bg-slate-800/70", textColor = "text-purple-300" }) => {
-  const [isOpen, setIsOpen] = useState(initiallyOpen);
-  return (
-    <div className={`mb-8 ${cardBgColor} p-6 rounded-xl shadow-2xl border border-slate-700/60 transition-all duration-300 hover:shadow-purple-500/30`}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex justify-between items-center text-left text-xl font-semibold ${textColor} hover:text-purple-200 transition-colors mb-3 pb-2 border-b border-slate-600/50`}
-      >
-        <div className="flex items-center">
-          {icon}
-          <span className="ml-3">{title}</span>
-        </div>
-        <ChevronRight size={24} className={`transform transition-transform duration-300 ${isOpen ? 'rotate-90' : ''}`} />
-      </button>
-      {isOpen && <div className="text-gray-300 space-y-4 mt-4 pl-2 pr-2 text-sm md:text-base">{children}</div>}
-    </div>
-  );
-};
-
 // Evol-Instruct 流程示意圖元件
 const EvolInstructFlowDiagram = () => {
   const flowStepStyle = "bg-sky-700/50 p-3 rounded-lg shadow-md text-center text-sky-100 text-sm min-h-[80px] flex flex-col justify-center";
