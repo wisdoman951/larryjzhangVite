@@ -181,43 +181,25 @@ const TestingProcessPage = () => {
 
   const handleGenerateEvolvedPrompts = async () => {
     const baseSeedPrompt = generateBaseSeedPromptForIndustry(selectedIndustry);
-    logger.info(`使用行業基礎提示詞: "${baseSeedPrompt}" (針對 ${selectedIndustry})`);
-
     let generationConfigPayload = [];
     if (generationMode === 'owasp') {
-      generationConfigPayload = Object.entries(selectedOwasp).map(([category, count]) => ({
-        mode: 'owasp', category, count: parseInt(count, 10) || 1
-      }));
+      generationConfigPayload = Object.entries(selectedOwasp).map(([category, count]) => ({ mode: 'owasp', category, count: parseInt(count, 10) || 1 }));
     } else if (generationMode === 'thematic') {
-      generationConfigPayload = Object.entries(selectedThematic).map(([category, count]) => ({
-        mode: 'thematic', category, count: parseInt(count, 10) || 1
-      }));
+      generationConfigPayload = Object.entries(selectedThematic).map(([category, count]) => ({ mode: 'thematic', category, count: parseInt(count, 10) || 1 }));
     }
-
-    if (generationConfigPayload.length === 0) {
-      setPromptGenerationError(`請至少選擇一個 ${generationMode === 'owasp' ? 'OWASP 風險' : '主題'} 類別！`);
-      return;
-    }
-    
+    if (generationConfigPayload.length === 0) { setPromptGenerationError(`請至少選擇一個類別！`); return; }
     let totalRequestedByConfig = generationConfigPayload.reduce((sum, item) => sum + item.count, 0);
-    if (totalRequestedByConfig === 0) {
-        setPromptGenerationError(`請為選中的類別指定至少生成一個提示詞。`);
-        return;
-    }
+    if (totalRequestedByConfig === 0) { setPromptGenerationError(`請為選中的類別指定至少生成一個提示詞。`); return; }
     
-    setIsGeneratingPrompts(true);
-    setGeneratedEvolvedPrompts([]);
-    setPromptGenerationError('');
-    
+    setIsGeneratingPrompts(true); setGeneratedEvolvedPrompts([]); setPromptGenerationError('');
     try {
       logger.info(`向 API (${GENERATE_EVOLVED_PROMPTS_API}) 發送請求: seed=${baseSeedPrompt}, config=${JSON.stringify(generationConfigPayload)}`);
       const response = await fetch(GENERATE_EVOLVED_PROMPTS_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           seed_prompt: baseSeedPrompt,
           generation_config: generationConfigPayload,
-          total_count: OVERALL_MAX_PROMPTS_TARGET // Lambda會盡量生成接近這個總數
+          total_count: Math.min(totalRequestedByConfig, OVERALL_MAX_PROMPTS_TARGET) 
         }),
       });
       
@@ -394,8 +376,15 @@ const TestingProcessPage = () => {
           {generatedEvolvedPrompts.length > 0 && (
             <div className="mt-6">
               <h5 className="text-md font-semibold text-purple-300 mb-2">AI 生成的演化提示詞 ({generatedEvolvedPrompts.length} 個)：</h5>
-              <ul className="list-decimal list-inside pl-4 space-y-2 text-sm bg-slate-800/60 p-4 rounded-md shadow max-h-96 overflow-y-auto">
-                {generatedEvolvedPrompts.map((p, i) => <li key={`gen-${i}`} className="p-1.5 rounded hover:bg-slate-700/50 break-all">{p}</li>)}
+              <ul className="list-decimal list-inside pl-4 space-y-3 text-sm bg-slate-800/60 p-4 rounded-md shadow max-h-[500px] overflow-y-auto"> {/* 增加高度 */}
+                {generatedEvolvedPrompts.map((item, i) => (
+                  <li key={`gen-${i}`} className="p-2 rounded hover:bg-slate-700/50 border-b border-slate-700 last:border-b-0">
+                    <p className="break-all">{item.prompt}</p>
+                    <div className="text-xs text-purple-300/80 mt-1">
+                      (模式: {item.mode === 'owasp' ? 'OWASP' : '主題'} - 類別: {item.category})
+                    </div>
+                  </li>
+                ))}
               </ul>
             </div>
           )}
